@@ -5,7 +5,7 @@
 
 #define MIN_NOTE_DUR -3
 #define MAX_NOTE_DUR 4
-#define DEFAULT_NOTE_DUR 1
+#define DEFAULT_NOTE_DUR 2
 
 #define CVRANGE_MAX 8
 enum CVRange{
@@ -84,6 +84,7 @@ struct Sequencer1 : Module {
 		EVOLUTION_LENGTH_PARAM,
 		CYCLES_PER_EVOLUTION_PARAM,
 		DURATION_EVOLUTION_CHANCE_PARAM,
+		FULL_LENGTH_EVOLUTION_PARAM,
 		PARAMS_LEN
 	};
 	enum InputId {
@@ -144,6 +145,7 @@ struct Sequencer1 : Module {
 		configParam(EVOLUTION_LENGTH_PARAM, 0, MAX_SEQ_LENGTH, 0, "Evolution Length");
 		configParam(CYCLES_PER_EVOLUTION_PARAM, 1, MAX_SEQ_LENGTH, 1, "Cycles Per Evlolution");
 		configParam(DURATION_EVOLUTION_CHANCE_PARAM, 0, 1, 0, "Duration Evolution Chance");
+		configSwitch(FULL_LENGTH_EVOLUTION_PARAM, 0, 1, 0, "Evolve uses Full Length", std::vector<std::string>{"No","Yes"});
 
 		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
 
@@ -225,7 +227,9 @@ struct Sequencer1 : Module {
 							}
 							if(indexes.size() > 0){
 								int index = indexes[std::floor(rack::random::uniform() * indexes.size())];
-								evolutionMapping[index] = std::floor(rack::random::uniform() * maxStep);
+								bool fullLength = params[FULL_LENGTH_EVOLUTION_PARAM].getValue() == 1;
+								int maxRnd = fullLength ? MAX_SEQ_LENGTH : maxStep;
+								evolutionMapping[index] = std::floor(rack::random::uniform() * maxRnd);
 							}
 						}else{
 							evolutionCount--;
@@ -309,6 +313,9 @@ struct Sequencer1Widget : ModuleWidget {
 		addParam(createParamCentered<RotarySwitch<RoundSmallBlackKnob>>(Vec(x,y), module, Sequencer1::EVOLUTION_LENGTH_PARAM));
 		y += dy;
 		addParam(createParamCentered<RoundSmallBlackKnob>(Vec(x,y), module, Sequencer1::DURATION_EVOLUTION_CHANCE_PARAM));
+		y += dy;
+		addParam(createParamCentered<CKSS>(Vec(x,y), module, Sequencer1::FULL_LENGTH_EVOLUTION_PARAM));
+		
 
 		x += dx * 2;
 		y = yStart;
