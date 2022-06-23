@@ -1,0 +1,24 @@
+{
+  "slug": "JPLab",
+  "name": "JPLab",
+  "version": "2.0.0",
+  "license": "GPL-3.0-or-later",
+  "brand": "JPLab",
+  "author": "Andrew Hanson & joopvanderlinden",
+  "authorEmail": "",
+  "authorUrl": "",
+  "pluginUrl": "https://github.com/patheros/JPLab",
+  "manualUrl": "https://github.com/patheros/JPLab",
+  "sourceUrl": "https://github.com/patheros/JPLab",
+  "donateUrl": "",
+  "changelogUrl": "",
+  "modules": [
+  	{
+      "slug": "Sequencer1",
+      "name": "Sequencer1",
+      "description": "",
+      "manualUrl": "",
+      "tags": []
+    }
+  ]
+}
