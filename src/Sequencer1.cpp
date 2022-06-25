@@ -85,6 +85,7 @@ struct Sequencer1 : Module {
 		CYCLES_PER_EVOLUTION_PARAM,
 		DURATION_EVOLUTION_CHANCE_PARAM,
 		FULL_LENGTH_EVOLUTION_PARAM,
+		LENGTH_MODE_PARAM,
 		PARAMS_LEN
 	};
 	enum InputId {
@@ -117,6 +118,7 @@ struct Sequencer1 : Module {
 	//Persistant State
 
 	int currentStep;
+	int currentBeat;
 	int currentEvolvedStep;
 	int currentDur;
 	bool muted;
@@ -141,11 +143,12 @@ struct Sequencer1 : Module {
 		configOutput(GATE_OUTPUT,"Gate");
 		configOutput(CV_OUTPUT,"CV");
 
-		configParam(SEQ_LENGTH_PARAM, 1, MAX_SEQ_LENGTH, 8, "Sequence Length");
+		configParam(SEQ_LENGTH_PARAM, 1, MAX_SEQ_LENGTH * 4, 8, "Sequence Length");
 		configParam(EVOLUTION_LENGTH_PARAM, 0, MAX_SEQ_LENGTH, 0, "Evolution Length");
 		configParam(CYCLES_PER_EVOLUTION_PARAM, 1, MAX_SEQ_LENGTH, 1, "Cycles Per Evlolution");
 		configParam(DURATION_EVOLUTION_CHANCE_PARAM, 0, 1, 0, "Duration Evolution Chance");
 		configSwitch(FULL_LENGTH_EVOLUTION_PARAM, 0, 1, 0, "Evolve uses Full Length", std::vector<std::string>{"No","Yes"});
+		configSwitch(LENGTH_MODE_PARAM, 0, 1, 0, "Length Mode", std::vector<std::string>{"Beats","Steps"});
 
 		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
 
@@ -168,6 +171,7 @@ struct Sequencer1 : Module {
 		clockHigh = false;
 
 		currentStep = -1;
+		currentBeat = -1;
 		currentEvolvedStep = -1;
 		currentDur = 0;
 
@@ -184,6 +188,7 @@ struct Sequencer1 : Module {
 		//Reset Logic
 		if(schmittTrigger(resetHigh,inputs[RESET_INPUT].getVoltage())){
 			currentStep = -1;
+			currentBeat = -1;
 			currentEvolvedStep = -1;
 			currentDur = 0;
 
@@ -194,61 +199,79 @@ struct Sequencer1 : Module {
 			for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++) evolutionMapping[ni] = -1;
 		}
 
-		int maxStep = params[SEQ_LENGTH_PARAM].getValue();
-
 		//Clock Logic
 		if(schmittTrigger(clockHigh,inputs[CLOCK_INPUT].getVoltage())){
+			int maxStep = params[SEQ_LENGTH_PARAM].getValue();
+
+			bool maxStepInBeats = params[LENGTH_MODE_PARAM].getValue() == 0;
+
+			bool resetCycle = false;
+			bool doNextStep = false;
+
+			currentBeat++;
+			if(maxStepInBeats){
+				if(currentBeat >= maxStep) resetCycle = true;	
+			}
+
 			if(currentDur > 1){
 				currentDur--;
 			}else{
-				currentStep++;				
-				if(currentStep >= maxStep){
-					currentStep = 0;
-					//TODO EOC Logic
+				currentStep++;	
+				doNextStep = true;
+				if(!maxStepInBeats){
+					if(currentStep >= maxStep/4) resetCycle = true;
+				}
+			}					
 
-					evolveDur = rack::random::uniform() < params[DURATION_EVOLUTION_CHANCE_PARAM].getValue();
+			if(resetCycle){
+				int maxStepReached = currentStep;
+				currentStep = 0;
+				currentBeat = 0;
 
-					if(cyclesToEvolve > 1){
-						cyclesToEvolve --;
-					}else{
-						cyclesToEvolve = params[CYCLES_PER_EVOLUTION_PARAM].getValue();
-						int maxEvolution = params[EVOLUTION_LENGTH_PARAM].getValue();
-						if(evolutionCount >= maxEvolution){
-							evolvingUp = false;
-						}else if(evolutionCount <= 0){
-							evolvingUp = true;
+				evolveDur = rack::random::uniform() < params[DURATION_EVOLUTION_CHANCE_PARAM].getValue();
+
+				if(cyclesToEvolve > 1){
+					cyclesToEvolve --;
+				}else{
+					cyclesToEvolve = params[CYCLES_PER_EVOLUTION_PARAM].getValue();
+					int maxEvolution = params[EVOLUTION_LENGTH_PARAM].getValue();
+					if(evolutionCount >= maxEvolution){
+						evolvingUp = false;
+					}else if(evolutionCount <= 0){
+						evolvingUp = true;
+					}
+					
+					if(evolvingUp){
+						evolutionCount++;
+						std::vector<int> indexes;
+						for(int ni = 0; ni < maxStepReached; ni++){
+							if(evolutionMapping[ni] == -1) indexes.push_back(ni);
 						}
-						
-						if(evolvingUp){
-							evolutionCount++;
+						if(indexes.size() > 0){
+							int index = indexes[std::floor(rack::random::uniform() * indexes.size())];
+							bool fullLength = params[FULL_LENGTH_EVOLUTION_PARAM].getValue() == 1;
+							int maxRnd = fullLength ? MAX_SEQ_LENGTH : maxStepReached;
+							evolutionMapping[index] = std::floor(rack::random::uniform() * maxRnd);
+						}
+					}else{
+						evolutionCount--;
+						if(evolutionCount <= maxStepReached){
 							std::vector<int> indexes;
-							for(int ni = 0; ni < maxStep; ni++){
-								if(evolutionMapping[ni] == -1) indexes.push_back(ni);
+							for(int ni = 0; ni < maxStepReached; ni++){
+								if(evolutionMapping[ni] != -1) indexes.push_back(ni);
 							}
 							if(indexes.size() > 0){
 								int index = indexes[std::floor(rack::random::uniform() * indexes.size())];
-								bool fullLength = params[FULL_LENGTH_EVOLUTION_PARAM].getValue() == 1;
-								int maxRnd = fullLength ? MAX_SEQ_LENGTH : maxStep;
-								evolutionMapping[index] = std::floor(rack::random::uniform() * maxRnd);
-							}
-						}else{
-							evolutionCount--;
-							if(evolutionCount <= maxStep){
-								std::vector<int> indexes;
-								for(int ni = 0; ni < maxStep; ni++){
-									if(evolutionMapping[ni] != -1) indexes.push_back(ni);
-								}
-								if(indexes.size() > 0){
-									int index = indexes[std::floor(rack::random::uniform() * indexes.size())];
-									evolutionMapping[index] = -1;
-								}
+								evolutionMapping[index] = -1;
 							}
 						}
 					}
 				}
+			}
 
-				currentEvolvedStep = evolutionMapping[currentStep];
-				if(currentEvolvedStep == -1) currentEvolvedStep = currentStep;
+			if(doNextStep){
+				currentEvolvedStep = evolutionMapping[currentStep % MAX_SEQ_LENGTH];
+				if(currentEvolvedStep == -1) currentEvolvedStep = currentStep % MAX_SEQ_LENGTH;
 
 				//Use Duration from Current Step
 				int dur = params[MAIN_SEQ_DURATION_PARAM + (evolveDur ? currentEvolvedStep : currentStep)].getValue();
@@ -272,7 +295,7 @@ struct Sequencer1 : Module {
 		//Update Lights
 		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
 			lights[MAIN_SEQ_ACTIVE_LIGHT + ni * 3 + 0].setBrightness((evolutionMapping[ni] != -1 && currentStep == ni) ? 1 : 0);
-			lights[MAIN_SEQ_ACTIVE_LIGHT + ni * 3 + 1].setBrightness((ni < maxStep && evolutionMapping[ni] != -1)? 1 : 0);
+			lights[MAIN_SEQ_ACTIVE_LIGHT + ni * 3 + 1].setBrightness((evolutionMapping[ni] != -1)? 1 : 0);
 			lights[MAIN_SEQ_ACTIVE_LIGHT + ni * 3 + 2].setBrightness((currentStep == ni || currentEvolvedStep == ni) ? 1 : 0);
 		}
 	}
@@ -315,6 +338,8 @@ struct Sequencer1Widget : ModuleWidget {
 		addParam(createParamCentered<RoundSmallBlackKnob>(Vec(x,y), module, Sequencer1::DURATION_EVOLUTION_CHANCE_PARAM));
 		y += dy;
 		addParam(createParamCentered<CKSS>(Vec(x,y), module, Sequencer1::FULL_LENGTH_EVOLUTION_PARAM));
+		y += dy;
+		addParam(createParamCentered<CKSS>(Vec(x,y), module, Sequencer1::LENGTH_MODE_PARAM));
 		
 
 		x += dx * 2;
