@@ -9,3 +9,4 @@ extern Plugin* pluginInstance;
 
 // Declare each Model, defined in each module source file
 extern Model* modelSequencer1;
+extern Model* modelSequencer2;

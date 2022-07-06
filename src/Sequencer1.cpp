@@ -1,80 +1,12 @@
 #include "plugin.hpp"
 #include "util.hpp"
+#include "cvRange.hpp"
 
 #define MAX_SEQ_LENGTH 16
 
 #define MIN_NOTE_DUR -3
 #define MAX_NOTE_DUR 4
 #define DEFAULT_NOTE_DUR 2
-
-#define CVRANGE_MAX 8
-enum CVRange{
-	Bipolar_10,
-	Bipolar_5,
-	Bipolar_3,
-	Bipolar_1,
-	Unipolar_10,
-	Unipolar_5,
-	Unipolar_3,
-	Unipolar_1,
-};
-
-const std::string CVRange_Lables [] = {
-	"+/-10V",
-	"+/-5V",
-	"+/-3V",
-	"+/-1V",
-	"0V-10V",
-	"0V-5V",
-	"0V-3V",
-	"0V-1V",
-};
-
-float mapCVRange(float in, CVRange range){
-	switch(range){
-		case Bipolar_10:
-			return in * 20.f - 10.f;
-		case Bipolar_5:
-			return in * 10.f - 5.f;
-		case Bipolar_3:
-			return in * 6.f - 3.f;
-		case Bipolar_1:
-			return in * 2.f - 1.f;
-		case Unipolar_10:
-			return in * 10.f;
-		case Unipolar_5:
-			return in * 5.f;
-		case Unipolar_3:
-			return in * 3.f;
-		case Unipolar_1:
-			return in * 1.f;
-	}
-	return 0;
-}
-
-float invMapCVRange(float in, CVRange range){
-	switch(range){
-		case Bipolar_10:
-			return (in + 10.f) / 10.f;
-		case Bipolar_5:
-			return (in + 5.f) / 10.f;
-		case Bipolar_3:
-			return (in + 3.f) / 6.f;
-		case Bipolar_1:
-			return (in + 1.f) / 2.f;
-		case Unipolar_10:
-			return in / 10.f;
-		case Unipolar_5:
-			return in / 5.f;
-		case Unipolar_3:
-			return in / 3.f;
-		case Unipolar_1:
-			return in / 1.f;
-	}
-	return 0;
-}
-
-
 
 struct Sequencer1 : Module {
 	enum ParamId {
@@ -87,6 +19,7 @@ struct Sequencer1 : Module {
 		FULL_LENGTH_EVOLUTION_PARAM,
 		LENGTH_MODE_PARAM,
 		DEEVOLUTION_MODE_PARAM,
+		RATCHET_CHANCE_PARAM,
 		PARAMS_LEN
 	};
 	enum InputId {
@@ -104,18 +37,6 @@ struct Sequencer1 : Module {
 		LIGHTS_LEN
 	};
 
-	struct CVRangeParamQuantity : ParamQuantity  {
-		float getDisplayValue() override {
-			float v = getValue();
-			Sequencer1* snModule = dynamic_cast<Sequencer1*>(module);
-			return mapCVRange(v,snModule->range);
-		}
-		void setDisplayValue(float v) override {
-			Sequencer1* snModule = dynamic_cast<Sequencer1*>(module);
-			setValue(invMapCVRange(v,snModule->range));
-		}
-	};
-
 	//Persistant State
 
 	int currentStep;
@@ -123,10 +44,12 @@ struct Sequencer1 : Module {
 	int currentEvolvedStep;
 	int currentDur;
 	bool muted;
+	bool ratcheting;
 	int cyclesToEvolve;
 	int evolutionCount;
 	bool evolvingUp;
 	int evolutionMapping [MAX_SEQ_LENGTH];
+	float evolutionRatcheting [MAX_SEQ_LENGTH];
 	bool evolveDur;
 
 	//Non Persistant State
@@ -151,12 +74,14 @@ struct Sequencer1 : Module {
 		configSwitch(FULL_LENGTH_EVOLUTION_PARAM, 0, 1, 0, "Evolve uses Full Length", std::vector<std::string>{"No","Yes"});
 		configSwitch(LENGTH_MODE_PARAM, 0, 1, 0, "Length Mode", std::vector<std::string>{"Beats","Steps"});
 		configSwitch(DEEVOLUTION_MODE_PARAM, 0, 1, 0, "De-Evolution Mode", std::vector<std::string>{"Ping-Pong","Instant"});
+		configParam(RATCHET_CHANCE_PARAM, 0, 1, 0, "Ratchet Chance on Evolution");
+		
 
 		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
 
 			std::string str_ni = std::to_string(ni+1);
 
-			configParam<CVRangeParamQuantity>(MAIN_SEQ_NOTE_CV_PARAM + ni, 0.f, 1.f, 0.5f, "CV " + str_ni, "V");
+			configParam<CVRangeParamQuantity<Sequencer1>>(MAIN_SEQ_NOTE_CV_PARAM + ni, 0.f, 1.f, 0.5f, "CV " + str_ni, "V");
 			configParam(MAIN_SEQ_DURATION_PARAM + ni, MIN_NOTE_DUR, MAX_NOTE_DUR, DEFAULT_NOTE_DUR, "Duration " + str_ni);
 
 		}
@@ -178,12 +103,16 @@ struct Sequencer1 : Module {
 		currentDur = 0;
 
 		muted = false;
+		ratcheting = false;
 
 		cyclesToEvolve = 0;
 		evolutionCount = 0;
 		evolvingUp = true;
 		evolveDur = false;
-		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++) evolutionMapping[ni] = -1;
+		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
+			evolutionMapping[ni] = -1;
+			evolutionRatcheting[ni] = 0;
+		}
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -194,11 +123,17 @@ struct Sequencer1 : Module {
 			currentEvolvedStep = -1;
 			currentDur = 0;
 
+			muted = false;
+			ratcheting = false;
+
 			cyclesToEvolve = 0;
 			evolutionCount = 0;
 			evolvingUp = true;
 			evolveDur = false;
-			for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++) evolutionMapping[ni] = -1;
+			for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
+				evolutionMapping[ni] = -1;
+				evolutionRatcheting[ni] = 0;
+			}
 		}
 
 		//Clock Logic
@@ -254,6 +189,7 @@ struct Sequencer1 : Module {
 							bool fullLength = params[FULL_LENGTH_EVOLUTION_PARAM].getValue() == 1;
 							int maxRnd = fullLength ? MAX_SEQ_LENGTH : maxStepReached;
 							evolutionMapping[index] = std::floor(rack::random::uniform() * maxRnd);
+							evolutionRatcheting[index] = rack::random::uniform(); 
 						}
 					}else if(evolutionCount > 0){
 						if(params[DEEVOLUTION_MODE_PARAM].getValue() == 1){
@@ -262,7 +198,10 @@ struct Sequencer1 : Module {
 							evolutionCount = 0;
 							evolvingUp = true;
 							evolveDur = false;
-							for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++) evolutionMapping[ni] = -1;
+							for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
+								evolutionMapping[ni] = -1;
+								evolutionRatcheting[ni] = 0;
+							}
 						}else{
 							//Slow De-evolve
 							evolutionCount--;
@@ -283,7 +222,13 @@ struct Sequencer1 : Module {
 
 			if(doNextStep){
 				currentEvolvedStep = evolutionMapping[currentStep % MAX_SEQ_LENGTH];
-				if(currentEvolvedStep == -1) currentEvolvedStep = currentStep % MAX_SEQ_LENGTH;
+				float ratchetRnd = evolutionRatcheting[currentStep % MAX_SEQ_LENGTH];
+				if(currentEvolvedStep == -1){
+					currentEvolvedStep = currentStep % MAX_SEQ_LENGTH;
+					ratcheting = false;
+				}else{
+					ratcheting = ratchetRnd < params[RATCHET_CHANCE_PARAM].getValue();
+				}
 
 				//Use Duration from Current Step
 				int dur = params[MAIN_SEQ_DURATION_PARAM + (evolveDur ? currentEvolvedStep : currentStep)].getValue();
@@ -301,7 +246,7 @@ struct Sequencer1 : Module {
 			float val = params[MAIN_SEQ_NOTE_CV_PARAM + currentEvolvedStep].getValue();
 			float cv = mapCVRange(val,range);
 			outputs[CV_OUTPUT].setVoltage(cv);
-			outputs[GATE_OUTPUT].setVoltage((clockHigh || currentDur > 1) ? 10 : 0);
+			outputs[GATE_OUTPUT].setVoltage((clockHigh || (!ratcheting && currentDur > 1)) ? 10 : 0);
 		}
 
 		//Update Lights
@@ -353,7 +298,10 @@ struct Sequencer1Widget : ModuleWidget {
 		y += dy;
 		addParam(createParamCentered<CKSS>(Vec(x,y), module, Sequencer1::LENGTH_MODE_PARAM));
 		y += dy;
-		addParam(createParamCentered<CKSS>(Vec(x,y), module, Sequencer1::DEEVOLUTION_MODE_PARAM));		
+		addParam(createParamCentered<CKSS>(Vec(x,y), module, Sequencer1::DEEVOLUTION_MODE_PARAM));	
+		y += dy;
+		addParam(createParamCentered<RoundSmallBlackKnob>(Vec(x,y), module, Sequencer1::RATCHET_CHANCE_PARAM));
+			
 		
 
 		x += dx * 2;
@@ -379,15 +327,7 @@ struct Sequencer1Widget : ModuleWidget {
 		menu->addChild(new MenuEntry); //Blank Row
 		menu->addChild(createMenuLabel("Sequencer1"));
 		
-		menu->addChild(createSubmenuItem("Range", CVRange_Lables[module->range],
-			[=](Menu* menu) {
-				for(int i = 0; i < CVRANGE_MAX; i++){
-					menu->addChild(createMenuItem(CVRange_Lables[i], CHECKMARK(module->range == i), [module,i]() { 
-						module->range = (CVRange)i;
-					}));
-				}
-			}
-		));
+		addRangeSelectMenu<Sequencer1>(module,menu);
 	}
 };
 
