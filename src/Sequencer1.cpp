@@ -86,6 +86,7 @@ struct Sequencer1 : Module {
 		DURATION_EVOLUTION_CHANCE_PARAM,
 		FULL_LENGTH_EVOLUTION_PARAM,
 		LENGTH_MODE_PARAM,
+		DEEVOLUTION_MODE_PARAM,
 		PARAMS_LEN
 	};
 	enum InputId {
@@ -149,6 +150,7 @@ struct Sequencer1 : Module {
 		configParam(DURATION_EVOLUTION_CHANCE_PARAM, 0, 1, 0, "Duration Evolution Chance");
 		configSwitch(FULL_LENGTH_EVOLUTION_PARAM, 0, 1, 0, "Evolve uses Full Length", std::vector<std::string>{"No","Yes"});
 		configSwitch(LENGTH_MODE_PARAM, 0, 1, 0, "Length Mode", std::vector<std::string>{"Beats","Steps"});
+		configSwitch(DEEVOLUTION_MODE_PARAM, 0, 1, 0, "De-Evolution Mode", std::vector<std::string>{"Ping-Pong","Instant"});
 
 		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
 
@@ -241,7 +243,7 @@ struct Sequencer1 : Module {
 						evolvingUp = true;
 					}
 					
-					if(evolvingUp){
+					if(evolvingUp && evolutionCount < maxEvolution){
 						evolutionCount++;
 						std::vector<int> indexes;
 						for(int ni = 0; ni < maxStepReached; ni++){
@@ -253,16 +255,26 @@ struct Sequencer1 : Module {
 							int maxRnd = fullLength ? MAX_SEQ_LENGTH : maxStepReached;
 							evolutionMapping[index] = std::floor(rack::random::uniform() * maxRnd);
 						}
-					}else{
-						evolutionCount--;
-						if(evolutionCount <= maxStepReached){
-							std::vector<int> indexes;
-							for(int ni = 0; ni < maxStepReached; ni++){
-								if(evolutionMapping[ni] != -1) indexes.push_back(ni);
-							}
-							if(indexes.size() > 0){
-								int index = indexes[std::floor(rack::random::uniform() * indexes.size())];
-								evolutionMapping[index] = -1;
+					}else if(evolutionCount > 0){
+						if(params[DEEVOLUTION_MODE_PARAM].getValue() == 1){
+							//Instant De-evolve
+							cyclesToEvolve = 0;
+							evolutionCount = 0;
+							evolvingUp = true;
+							evolveDur = false;
+							for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++) evolutionMapping[ni] = -1;
+						}else{
+							//Slow De-evolve
+							evolutionCount--;
+							if(evolutionCount <= maxStepReached){
+								std::vector<int> indexes;
+								for(int ni = 0; ni < maxStepReached; ni++){
+									if(evolutionMapping[ni] != -1) indexes.push_back(ni);
+								}
+								if(indexes.size() > 0){
+									int index = indexes[std::floor(rack::random::uniform() * indexes.size())];
+									evolutionMapping[index] = -1;
+								}
 							}
 						}
 					}
@@ -340,6 +352,8 @@ struct Sequencer1Widget : ModuleWidget {
 		addParam(createParamCentered<CKSS>(Vec(x,y), module, Sequencer1::FULL_LENGTH_EVOLUTION_PARAM));
 		y += dy;
 		addParam(createParamCentered<CKSS>(Vec(x,y), module, Sequencer1::LENGTH_MODE_PARAM));
+		y += dy;
+		addParam(createParamCentered<CKSS>(Vec(x,y), module, Sequencer1::DEEVOLUTION_MODE_PARAM));		
 		
 
 		x += dx * 2;
