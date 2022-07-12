@@ -8,7 +8,7 @@
 #define MAX_NOTE_DUR 4
 #define DEFAULT_NOTE_DUR 2
 
-struct Sequencer3 : Module {
+struct Sequencer3 : Module, NotePreviewer {
 	enum ParamId {
 		ENUMS(MAIN_SEQ_NOTE_CV_PARAM, MAX_SEQ_LENGTH),
 		ENUMS(MAIN_SEQ_DURATION_PARAM, MAX_SEQ_LENGTH),
@@ -39,8 +39,9 @@ struct Sequencer3 : Module {
 
 	//Non Persistant State
 
-	bool clockHigh = false;
-	bool resetHigh = false;
+	bool clockHigh;
+	bool resetHigh;
+	float previewNote;
 
 	Sequencer3() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -71,6 +72,8 @@ struct Sequencer3 : Module {
 	void initalize(){
 		clockHigh = false;
 		resetHigh = false;
+
+		previewNote = NoteEntryWidget_OFF;
 
 		currentStep = -1;
 		currentBeat = -1;
@@ -120,24 +123,34 @@ struct Sequencer3 : Module {
 		}
 
 		//Update Outputs
-		if(muted){
-			//CV Holds Value
-			outputs[GATE_OUTPUT].setVoltage(0);
+		if(previewNote != NoteEntryWidget_OFF){
+			//Preview Note
+			outputs[CV_OUTPUT].setVoltage(previewNote);
+			outputs[GATE_OUTPUT].setVoltage(clockHigh ? 10 : 0);
 		}else{
-			float val = 0;
-			int stepIndex = currentStep;
-			if(stepIndex >= 0 && stepIndex < MAX_SEQ_LENGTH){ 
-				val = params[MAIN_SEQ_NOTE_CV_PARAM + stepIndex].getValue();
+			if(muted){
+				//CV Holds Value
+				outputs[GATE_OUTPUT].setVoltage(0);
+			}else{
+				float val = 0;
+				int stepIndex = currentStep;
+				if(stepIndex >= 0 && stepIndex < MAX_SEQ_LENGTH){ 
+					val = params[MAIN_SEQ_NOTE_CV_PARAM + stepIndex].getValue();
+				}
+				float cv = val;
+				outputs[CV_OUTPUT].setVoltage(cv);
+				outputs[GATE_OUTPUT].setVoltage((clockHigh || currentDur > 1) ? 10 : 0);
 			}
-			float cv = val;
-			outputs[CV_OUTPUT].setVoltage(cv);
-			outputs[GATE_OUTPUT].setVoltage((clockHigh || currentDur > 1) ? 10 : 0);
 		}
 
 		//Update Lights
 		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
 			lights[MAIN_SEQ_ACTIVE_LIGHT + ni * 3 + 2].setBrightness(currentStep == ni ? 1 : 0);
 		}
+	}
+
+	void setPreviewNote(float note) override{
+		previewNote = note;
 	}
 
 	int countSteps(){
@@ -154,8 +167,8 @@ struct Sequencer3 : Module {
 	}
 };
 
-
 struct Sequencer3Widget : ModuleWidget {
+	NoteEntryWidgetPanel * noteEntry;
 	Sequencer3Widget(Sequencer3* module) {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Blank26hp.svg")));
@@ -184,12 +197,18 @@ struct Sequencer3Widget : ModuleWidget {
 		y += dy;
 		addParam(createParamCentered<RotarySwitch<RoundSmallBlackKnob>>(Vec(x,y), module, Sequencer3::SEQ_LENGTH_PARAM));
 		
-
 		x += dx * 2;
 		y = yStart;
-		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){			
 
-			addParam(createParamCentered<NoteWidget<RoundSmallBlackKnob>>(Vec(x,y), module, Sequencer3::MAIN_SEQ_NOTE_CV_PARAM + ni));
+		noteEntry = createWidget<NoteEntryWidgetPanel>(Vec(x + dx * 5,y));
+		noteEntry->init();
+		noteEntry->previewer = module;
+		addChild(noteEntry);
+
+		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){			
+			auto noteWidget = createParamCentered<NoteWidget<RoundSmallBlackKnob>>(Vec(x,y), module, Sequencer3::MAIN_SEQ_NOTE_CV_PARAM + ni);
+			noteWidget->panelSetter = noteEntry;
+			addParam(noteWidget);
 			addChild(createLightCentered<SmallLight<RedGreenBlueLight>>(Vec(x + dx*0.55f, y), module, Sequencer3::MAIN_SEQ_ACTIVE_LIGHT + ni * 3));
 			addParam(createParamCentered<RotarySwitch<Trimpot>>(Vec(x + dx,y), module, Sequencer3::MAIN_SEQ_DURATION_PARAM + ni));
 
@@ -200,6 +219,12 @@ struct Sequencer3Widget : ModuleWidget {
 				x += dx * 3;
 			}
 		}
+
+		// QuantizerDisplay* quantizerDisplay = createWidget<QuantizerDisplay>(Vec(x,y));
+		// QuantizerDisplay* quantizerDisplay = createWidget<QuantizerDisplay>(mm2px(Vec(0.0, 13.039)));
+		// quantizerDisplay->box.size = mm2px(Vec(15.24, 55.88));
+		// quantizerDisplay->setModule(module);
+		// addChild(quantizerDisplay);
 	}
 
 	// void appendContextMenu(Menu* menu) override {
