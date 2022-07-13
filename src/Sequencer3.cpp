@@ -171,7 +171,7 @@ struct Sequencer3Widget : ModuleWidget {
 	NoteEntryWidgetPanel * noteEntry;
 	Sequencer3Widget(Sequencer3* module) {
 		setModule(module);
-		setPanel(createPanel(asset::plugin(pluginInstance, "res/Blank26hp.svg")));
+		setPanel(createPanel(asset::plugin(pluginInstance, "res/Blank30hp.svg")));
 
 		addChild(createWidget<ScrewSilver>(Vec(RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewSilver>(Vec(box.size.x - 2 * RACK_GRID_WIDTH, 0)));
@@ -200,7 +200,7 @@ struct Sequencer3Widget : ModuleWidget {
 		x += dx * 2;
 		y = yStart;
 
-		noteEntry = createWidget<NoteEntryWidgetPanel>(Vec(x + dx * 5,y));
+		noteEntry = createWidget<NoteEntryWidgetPanel>(Vec(-0.25f * dx,yStart + dy * 9.2f));
 		noteEntry->init();
 		noteEntry->previewer = module;
 		addChild(noteEntry);

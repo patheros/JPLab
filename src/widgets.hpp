@@ -46,6 +46,7 @@ struct NoteEntryButton : OpaqueWidget {
 		nvgFill(args.vg);
 	}
 	void onButton(const widget::Widget::ButtonEvent& e) override {
+		DEBUG("NoteEntryButton onButton %i on btn:%i",e.action,e.button);
 		if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT && (e.mods & RACK_MOD_MASK) == 0) {
 			//Handle Left Button Press
 			parent->setValue(value);
@@ -57,53 +58,50 @@ struct NoteEntryButton : OpaqueWidget {
 struct NoteEntryWidget : LedDisplay, NoteControler {
 	bool inMenu;
 	void init() {
-		Vec QUANTIZER_DISPLAY_SIZE;
-		Vec QUANTIZER_DISPLAY_OFFSET;
 		float margin;
 		if(inMenu){
-			margin = 2.0f;
-			QUANTIZER_DISPLAY_SIZE = Vec(2,2);
-			QUANTIZER_DISPLAY_OFFSET = mm2px(Vec(0, 15.931 - 2.742));
+			margin = 1.5f;
+			
 		}else{
 			margin = 1.0f;
-			QUANTIZER_DISPLAY_SIZE = Vec(1,1);
-			QUANTIZER_DISPLAY_OFFSET = mm2px(Vec(0, 15.931 - 2.742));
 		}
+		Vec QUANTIZER_DISPLAY_SIZE = Vec(margin,margin);
+		Vec QUANTIZER_DISPLAY_OFFSET = mm2px(Vec(15.931 - 2.742,0));
 
-		box.size = mm2px(QUANTIZER_DISPLAY_SIZE * Vec(38.25, 55.88));
+		box.size = mm2px(QUANTIZER_DISPLAY_SIZE * Vec(158.88,15.25));
 
 		std::vector<Vec> noteAbsPositions = {
 			Vec(),
-			mm2px(Vec(2.242, 60.54)),
-			mm2px(Vec(2.242, 58.416)),
-			mm2px(Vec(2.242, 52.043)),
-			mm2px(Vec(2.242, 49.919)),
-			mm2px(Vec(2.242, 45.67)),
-			mm2px(Vec(2.242, 39.298)),
-			mm2px(Vec(2.242, 37.173)),
-			mm2px(Vec(2.242, 30.801)),
-			mm2px(Vec(2.242, 28.677)),
-			mm2px(Vec(2.242, 22.304)),
-			mm2px(Vec(2.242, 20.18)),
-			mm2px(Vec(2.242, 15.931)),
+			mm2px(Vec(60.54, 2.242)),
+			mm2px(Vec(58.416, 2.242)),
+			mm2px(Vec(52.043, 2.242)),
+			mm2px(Vec(49.919, 2.242)),
+			mm2px(Vec(45.67, 2.242)),
+			mm2px(Vec(39.298, 2.242)),
+			mm2px(Vec(37.173, 2.242)),
+			mm2px(Vec(30.801, 2.242)),
+			mm2px(Vec(28.677, 2.242)),
+			mm2px(Vec(22.304, 2.242)),
+			mm2px(Vec(20.18, 2.242)),
+			mm2px(Vec(15.931, 2.242)),
 		};
 		std::vector<Vec> noteSizes = {
 			Vec(),
-			mm2px(Vec(10.734, 5.644)),
-			mm2px(Vec(8.231, 3.52)),
-			mm2px(Vec(10.734, 7.769)),
-			mm2px(Vec(8.231, 3.52)),
-			mm2px(Vec(10.734, 5.644)),
-			mm2px(Vec(10.734, 5.644)),
-			mm2px(Vec(8.231, 3.52)),
-			mm2px(Vec(10.734, 7.769)),
-			mm2px(Vec(8.231, 3.52)),
-			mm2px(Vec(10.734, 7.768)),
-			mm2px(Vec(8.231, 3.52)),
-			mm2px(Vec(10.734, 5.644)),
+			mm2px(Vec(5.644, 10.734)),
+			mm2px(Vec(3.52, 8.231)),
+			mm2px(Vec(7.769, 10.734)),
+			mm2px(Vec(3.52, 8.231)),
+			mm2px(Vec(5.644, 10.734)),
+			mm2px(Vec(5.644, 10.734)),
+			mm2px(Vec(3.52, 8.231)),
+			mm2px(Vec(7.769, 10.734)),
+			mm2px(Vec(3.52, 8.231)),
+			mm2px(Vec(7.768, 10.734)),
+			mm2px(Vec(3.52, 8.231)),
+			mm2px(Vec(5.644, 10.734)),
 		};
 
-		Vec OCTAVE_OFFSET = mm2px(Vec(QUANTIZER_DISPLAY_SIZE.x*11.734, 0));
+		Vec OCTAVE_OFFSET = mm2px(Vec(QUANTIZER_DISPLAY_SIZE.x*51.04,0));
 
 		// White notes
 		for (int octave = 0; octave < 3; octave++){			
@@ -170,13 +168,26 @@ struct NoteEntryWidgetPanel : NoteEntryWidget{
 	}
 };
 
+//Allows you to right click things, mainly other NoteWidgets, while the menu from the first NoteWidget is up.
+struct PassThroughMenuOverlay : ui::MenuOverlay {
+	//Based on MenuOverlay::onButton with the event consum commented out
+	void onButton(const widget::Widget::ButtonEvent& e) override{
+		DEBUG("Overlay onButton %i on btn:%i",e.action,e.button);
+		Widget::onButton(e);
+		if (e.action == GLFW_PRESS && !e.isConsumed()){
+			widget::Widget::ActionEvent eAction;
+			ui::MenuOverlay::onAction(eAction);
+		}
+	}
+};
+
 template <typename TBase = rack::app::ParamWidget>
 struct NoteWidget : TBase {
 	NoteEntryWidgetPanel * panelSetter = NULL;
 	NoteWidget() {
 	}
-	void onButton(const widget::Widget::ButtonEvent& e) override {
-		
+	void onButton(const widget::Widget::ButtonEvent& e) override {		
+		DEBUG("NoteWidget onButton %i on btn:%i",e.action,e.button);
 		if (e.action == GLFW_PRESS && (e.mods & RACK_MOD_MASK) == 0) {
 			if(e.button == GLFW_MOUSE_BUTTON_LEFT){
 				// Left Click pulls from panelSetter if present and selected
@@ -197,8 +208,18 @@ struct NoteWidget : TBase {
 		TBase::onButton(e);
 	}
 	void createContextMenu() {
-		ui::Menu* menu = createMenu();
-		NoteEntryWidgetMenu* noteSelector = createWidget<NoteEntryWidgetMenu>(mm2px(Vec(0.0, 0)));
+		//Pulled from helper.hpp : createMenu
+		Menu* menu;
+		{
+			menu = new Menu;
+			menu->box.pos = APP->scene->mousePos - mm2px(Vec(158.88f/2.f*1.5f,0)); //Add offset to move the menu into the middle of the click position
+
+			ui::MenuOverlay* menuOverlay = new PassThroughMenuOverlay;
+			menuOverlay->addChild(menu);
+
+			APP->scene->addChild(menuOverlay);
+		}
+		NoteEntryWidgetMenu* noteSelector = createWidget<NoteEntryWidgetMenu>(mm2px(Vec(0, 0)));
 		noteSelector->parent = this; 
 		noteSelector->init();
 		menu->addChild(noteSelector);
