@@ -20,7 +20,7 @@ struct NotePreviewer {
 };
 
 struct NoteEntryButton : OpaqueWidget {
-	NoteControler * parent;
+NoteControler * parent;
 	float value;
 	float margin;
 	void draw(const DrawArgs& args) override {
@@ -181,13 +181,13 @@ struct PassThroughMenuOverlay : ui::MenuOverlay {
 	}
 };
 
-template <typename TBase = rack::app::ParamWidget>
-struct NoteWidget : TBase {
+struct NoteWidget : Trimpot {
 	NoteEntryWidgetPanel * panelSetter = NULL;
+	bool displayed = true;
 	NoteWidget() {
 	}
-	void onButton(const widget::Widget::ButtonEvent& e) override {		
-		DEBUG("NoteWidget onButton %i on btn:%i",e.action,e.button);
+	void onButton(const widget::Widget::ButtonEvent& e) override {	
+		if(!displayed) return;
 		if (e.action == GLFW_PRESS && (e.mods & RACK_MOD_MASK) == 0) {
 			if(e.button == GLFW_MOUSE_BUTTON_LEFT){
 				// Left Click pulls from panelSetter if present and selected
@@ -199,14 +199,21 @@ struct NoteWidget : TBase {
 				}				
 			}else if(e.button == GLFW_MOUSE_BUTTON_RIGHT){
 				// Right click to open context menu
-				TBase::destroyTooltip();
+				Trimpot::destroyTooltip();
 				createContextMenu();
 				e.consume(this);
 				return;
 			}
 		}
-		TBase::onButton(e);
+		Trimpot::onButton(e);
 	}
+	void onHover(const HoverEvent& e) override{
+		if(displayed) Trimpot::onHover(e);
+	}
+	void onDragStart(const DragStartEvent& e) override{
+		if(displayed) Trimpot::onDragStart(e);
+	}
+	//void onHoverScroll(const HoverScrollEvent& e) override;
 	void createContextMenu() {
 		//Pulled from helper.hpp : createMenu
 		Menu* menu;
@@ -223,5 +230,93 @@ struct NoteWidget : TBase {
 		noteSelector->parent = this; 
 		noteSelector->init();
 		menu->addChild(noteSelector);
+	}
+	void draw(const DrawArgs& args) override {
+		if(displayed) Trimpot::draw(args);
+	}
+};
+
+#define NOTE_BLOCK_PARAM_COUNT 5
+
+void configNoteBlock(Module * module, int paramIndex);
+
+struct SubdivisionWidget : app::SvgSwitch
+{
+	int index;	
+
+	SubdivisionWidget() {
+		shadow->opacity = 0.0;
+		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/1.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/2.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/3.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/4.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/5.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/6.svg")));
+		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/7.svg")));
+	}
+
+	void draw(const DrawArgs& args) override {
+		
+		// Background
+		{
+			const NVGcolor BG_COLORS[] = {nvgRGB(0xcc, 0xcc, 0xcc), nvgRGB(0xb8, 0xb8, 0xb8)};
+			nvgBeginPath(args.vg);
+			nvgRect(args.vg, RECT_ARGS(box.zeroPos()));
+			nvgFillColor(args.vg, BG_COLORS[index % 2]);
+			nvgFill(args.vg);
+		}
+
+		SvgSwitch::draw(args);
+	}
+};
+
+struct NoteBlockWidget : widget::Widget{
+	SubdivisionWidget* subdivWidget;
+	NoteWidget* noteWidget[4];
+	void init(Module * module, NoteEntryWidgetPanel * panelSetter, int index, int paramIndex){		
+		subdivWidget = createParam<SubdivisionWidget>(mm2px(Vec(0,12)), module, paramIndex);
+		subdivWidget->index = index;
+		this->addChild(subdivWidget);
+
+		const Vec POS[] = {mm2px(Vec(0,0)),mm2px(Vec(5,5)),mm2px(Vec(10,0)),mm2px(Vec(15,5))};
+		
+		for(int i = 0; i < 4; i++){
+			noteWidget[i] = createParam<NoteWidget>(POS[i], module, paramIndex + 1 + i);
+			noteWidget[i]->panelSetter = panelSetter;
+			this->addChild(noteWidget[i]);
+		}
+	}
+
+	int subdiv = -1;
+
+	void step() override {
+		int newSubdiv = static_cast<int>(subdivWidget->getParamQuantity()->getValue());
+		if(subdiv != newSubdiv){
+			subdiv = newSubdiv;
+			updateKnobs();
+		}
+		Widget::step();
+	}
+
+	void updateKnobs(){
+		const Vec GONE = Vec(-1,-1);
+		const Vec POS[8][4] = {
+			GONE,GONE,GONE,GONE, //Not Used
+			mm2px(Vec(7.5,2.5)),GONE,GONE,GONE,
+			mm2px(Vec(2.5,2.5)),GONE,mm2px(Vec(12.5,2.5)),GONE,
+
+			mm2px(Vec(0,0)),mm2px(Vec(5,5)),mm2px(Vec(12.5,2.5)),GONE,
+			mm2px(Vec(0,0)),GONE,mm2px(Vec(7.5,2.5)),mm2px(Vec(15,5)),
+			mm2px(Vec(2.5,2.5)),GONE,mm2px(Vec(10,0)),mm2px(Vec(15,5)),
+
+			mm2px(Vec(0,2.5)),mm2px(Vec(7.5,2.5)),mm2px(Vec(15,2.5)),GONE,
+
+			mm2px(Vec(0,0)),mm2px(Vec(5,5)),mm2px(Vec(10,0)),mm2px(Vec(15,5)),
+		};
+
+		for(int i = 0; i < 4; i++){
+			noteWidget[i]->box.pos = POS[subdiv][i];
+			noteWidget[i]->displayed = POS[subdiv][i] != GONE;
+		}
 	}
 };
