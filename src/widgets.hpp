@@ -5,14 +5,23 @@
 
 using namespace rack;
 
-#define ROOT_OFFSET 5.f/12.f
+#define ROOT_OFFSET 7.f/12.f
 #define NoteEntryWidget_MIN (0.f - ROOT_OFFSET)
-#define NoteEntryWidget_MAX (3.f - ROOT_OFFSET)
+#define NoteEntryWidget_MAX (3.f - ROOT_OFFSET - 1.f/12.f)
 static const int NoteEntryWidget_OFF = -19;
+
+enum NoteExtra{
+	NE_NONE,
+	NE_MUTE,
+	NE_TIE,
+};
 
 struct NoteControler {
 	virtual float getValue(){ return 0; }
 	virtual void setValue(float value){}
+
+	virtual NoteExtra getExtra() { return NE_NONE; }
+	virtual void setExtra(NoteExtra extra) {}
 };
 
 struct NotePreviewer {
@@ -20,7 +29,7 @@ struct NotePreviewer {
 };
 
 struct NoteEntryButton : OpaqueWidget {
-NoteControler * parent;
+	NoteControler * parent;
 	float value;
 	float margin;
 	void draw(const DrawArgs& args) override {
@@ -55,20 +64,36 @@ NoteControler * parent;
 	}
 };
 
+struct NoteExtraButton : SvgWidget {
+	NoteControler * parent;
+	NoteExtra effect;
+	std::shared_ptr<window::Svg> on;
+	std::shared_ptr<window::Svg> off;
+	void draw(const DrawArgs& args) override {
+		setSvg(parent->getExtra() == effect ? on : off);
+		SvgWidget::draw(args);
+	}
+	void onButton(const widget::Widget::ButtonEvent& e) override {
+		if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT && (e.mods & RACK_MOD_MASK) == 0) {
+			parent->setExtra(effect);
+			e.consume(this);
+		}
+	}
+};
+
 struct NoteEntryWidget : LedDisplay, NoteControler {
 	bool inMenu;
 	void init() {
 		float margin;
 		if(inMenu){
-			margin = 1.5f;
-			
+			margin = 1.5f;			
 		}else{
 			margin = 1.0f;
 		}
 		Vec QUANTIZER_DISPLAY_SIZE = Vec(margin,margin);
-		Vec QUANTIZER_DISPLAY_OFFSET = mm2px(Vec(15.931 - 2.742,0));
+		Vec QUANTIZER_DISPLAY_OFFSET = mm2px(Vec(-5 + 15.931 - 2.742,0));
 
-		box.size = mm2px(QUANTIZER_DISPLAY_SIZE * Vec(158.88,15.25));
+		box.size = mm2px(QUANTIZER_DISPLAY_SIZE * Vec(163.88,15.25));
 
 		std::vector<Vec> noteAbsPositions = {
 			Vec(),
@@ -103,17 +128,38 @@ struct NoteEntryWidget : LedDisplay, NoteControler {
 
 		Vec OCTAVE_OFFSET = mm2px(Vec(QUANTIZER_DISPLAY_SIZE.x*51.04,0));
 
+		//Extra Buttons
+		{
+			NoteExtraButton* mute = new NoteExtraButton();
+			mute->box.pos = QUANTIZER_DISPLAY_SIZE * mm2px(Vec(1.5, 1.5));
+			mute->box.size = QUANTIZER_DISPLAY_SIZE * mm2px(Vec(4, 4)); //Note this doesn't scale the SVG, just scales the clickable box
+			mute->effect = NE_MUTE;
+			mute->on = Svg::load(asset::plugin(pluginInstance,"res/mute_on.svg"));
+			mute->off = Svg::load(asset::plugin(pluginInstance,"res/mute_off.svg"));
+			mute->parent = this;
+			addChild(mute);
+
+			NoteExtraButton* tie = new NoteExtraButton();
+			tie->box.pos = QUANTIZER_DISPLAY_SIZE * mm2px(Vec(1.5, 8));
+			tie->box.size = mute->box.size;
+			tie->effect = NE_TIE;
+			tie->on = Svg::load(asset::plugin(pluginInstance,"res/tie_on.svg"));
+			tie->off = Svg::load(asset::plugin(pluginInstance,"res/tie_off.svg"));
+			tie->parent = this;
+			addChild(tie);
+		}
+
 		// White notes
 		for (int octave = 0; octave < 3; octave++){			
 			static const std::vector<int> whiteNotes = {1, 3, 5, 6, 8, 10, 12};
 			for (int note : whiteNotes) {
 				NoteEntryButton* button = new NoteEntryButton();
-				button->box.pos = QUANTIZER_DISPLAY_SIZE * (noteAbsPositions[note] - QUANTIZER_DISPLAY_OFFSET) + OCTAVE_OFFSET * octave;
+				button->box.pos = QUANTIZER_DISPLAY_SIZE * (noteAbsPositions[note] - QUANTIZER_DISPLAY_OFFSET) + OCTAVE_OFFSET * (2-octave);
 				button->box.size = QUANTIZER_DISPLAY_SIZE * noteSizes[note];
 				// button->box.pos = noteAbsPositions[note] - box.pos;
 				// button->box.size = noteSizes[note];
 				button->margin = margin;
-				button->value = note / 12.f + octave - ROOT_OFFSET;
+				button->value = 3 - (note / 12.f + octave) - ROOT_OFFSET;
 				button->parent = this;
 				addChild(button);
 			}
@@ -123,12 +169,12 @@ struct NoteEntryWidget : LedDisplay, NoteControler {
 			static const std::vector<int> blackNotes = {2, 4, 7, 9, 11};
 			for (int note : blackNotes) {
 				NoteEntryButton* button = new NoteEntryButton();
-				button->box.pos = QUANTIZER_DISPLAY_SIZE * (noteAbsPositions[note] - QUANTIZER_DISPLAY_OFFSET) + OCTAVE_OFFSET * octave;
+				button->box.pos = QUANTIZER_DISPLAY_SIZE * (noteAbsPositions[note] - QUANTIZER_DISPLAY_OFFSET) + OCTAVE_OFFSET * (2-octave);
 				button->box.size = QUANTIZER_DISPLAY_SIZE * noteSizes[note];
 				// button->box.pos = noteAbsPositions[note] - box.pos;
 				// button->box.size = noteSizes[note];
 				button->margin = margin;
-				button->value = note / 12.f + octave - ROOT_OFFSET;
+				button->value = 3 - (note / 12.f + octave) - ROOT_OFFSET;
 				button->parent = this;
 				addChild(button);
 			}
@@ -142,29 +188,50 @@ struct NoteEntryWidgetMenu : NoteEntryWidget{
 		inMenu = true;
 	}
 	float getValue() override{
-		return parent->getParamQuantity()->getValue();
+		if(static_cast<NoteExtra>(parent->module->paramQuantities[parent->paramId + 1]->getValue() != NE_NONE)) return NoteEntryWidget_OFF; //Hide CV when extra is set
+		else return parent->getParamQuantity()->getValue();
 	}
 	void setValue(float value) override{
+		parent->module->paramQuantities[parent->paramId + 1]->setValue(NE_NONE); //Setting a CV clears extra
 		parent->getParamQuantity()->setValue(value);
 	}
+	NoteExtra getExtra() override{
+		return static_cast<NoteExtra>(parent->module->paramQuantities[parent->paramId + 1]->getValue());
+	}
+	void setExtra(NoteExtra value) override{
+		if(static_cast<NoteExtra>(parent->module->paramQuantities[parent->paramId + 1]->getValue()) == value) value = NE_NONE; //Clicking a 2nd time turns it off
+		parent->module->paramQuantities[parent->paramId + 1]->setValue(value);
+	}
+
 };
 
 struct NoteEntryWidgetPanel : NoteEntryWidget{
 	float value;
+	NoteExtra extra;
 	NotePreviewer * previewer;
 	NoteEntryWidgetPanel(){
 		inMenu = false;		
 		value = NoteEntryWidget_OFF;
+		extra = NE_NONE;
 	}
 	float getValue() override{
-		return value;
+		if(extra != NE_NONE) return NoteEntryWidget_OFF; //Hide CV when extra is set
+		else return value;
 	}
 	void setValue(float newVal) override{
+		extra = NE_NONE; //Clicking a note should clear the extra flag
 		if(newVal == value) newVal = NoteEntryWidget_OFF; //Clicking a 2nd time turns it off
 		value = newVal;
 		if(previewer){
 			previewer->setPreviewNote(newVal);
 		}
+	}
+	NoteExtra getExtra() override{
+		return extra;
+	}
+	void setExtra(NoteExtra newExtra) override{
+		if(newExtra == extra) newExtra = NE_NONE; //Clicking a 2nd time turns it off
+		extra = newExtra;
 	}
 };
 
@@ -184,6 +251,7 @@ struct PassThroughMenuOverlay : ui::MenuOverlay {
 struct NoteWidget : Trimpot {
 	NoteEntryWidgetPanel * panelSetter = NULL;
 	bool displayed = true;
+	bool canTie;
 	NoteWidget() {
 	}
 	void onButton(const widget::Widget::ButtonEvent& e) override {	
@@ -236,7 +304,7 @@ struct NoteWidget : Trimpot {
 	}
 };
 
-#define NOTE_BLOCK_PARAM_COUNT 5
+#define NOTE_BLOCK_PARAM_COUNT 9
 
 void configNoteBlock(Module * module, int paramIndex);
 
@@ -281,7 +349,7 @@ struct NoteBlockWidget : widget::Widget{
 		const Vec POS[] = {mm2px(Vec(0,0)),mm2px(Vec(5,5)),mm2px(Vec(10,0)),mm2px(Vec(15,5))};
 		
 		for(int i = 0; i < 4; i++){
-			noteWidget[i] = createParam<NoteWidget>(POS[i], module, paramIndex + 1 + i);
+			noteWidget[i] = createParam<NoteWidget>(POS[i], module, paramIndex + 1 + i * 2);
 			noteWidget[i]->panelSetter = panelSetter;
 			this->addChild(noteWidget[i]);
 		}
@@ -290,10 +358,12 @@ struct NoteBlockWidget : widget::Widget{
 	int subdiv = -1;
 
 	void step() override {
-		int newSubdiv = static_cast<int>(subdivWidget->getParamQuantity()->getValue());
-		if(subdiv != newSubdiv){
-			subdiv = newSubdiv;
-			updateKnobs();
+		if(subdivWidget->module != NULL){
+			int newSubdiv = static_cast<int>(subdivWidget->getParamQuantity()->getValue());
+			if(subdiv != newSubdiv){
+				subdiv = newSubdiv;
+				updateKnobs();
+			}
 		}
 		Widget::step();
 	}

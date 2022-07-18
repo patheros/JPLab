@@ -143,6 +143,8 @@ struct Sequencer3 : Module, NotePreviewer {
 		// for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
 		// 	lights[MAIN_SEQ_ACTIVE_LIGHT + ni * 3 + 2].setBrightness(currentStep == ni ? 1 : 0);
 		// }
+		
+		outputs[CV_OUTPUT].setVoltage(previewNote);
 	}
 
 	void setPreviewNote(float note) override{
