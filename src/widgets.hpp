@@ -21,7 +21,7 @@ struct NoteControler {
 	virtual void setValue(float value){}
 
 	virtual NoteExtra getExtra() { return NE_NONE; }
-	virtual void setExtra(NoteExtra extra) {}
+	virtual bool setExtra(NoteExtra extra) { return true; }
 };
 
 struct NotePreviewer {
@@ -183,24 +183,24 @@ struct NoteEntryWidget : LedDisplay, NoteControler {
 };
 
 struct NoteEntryWidgetMenu : NoteEntryWidget{
-	ParamWidget * parent;
+	NoteControler * parent;
 	NoteEntryWidgetMenu(){
 		inMenu = true;
 	}
 	float getValue() override{
-		if(static_cast<NoteExtra>(parent->module->paramQuantities[parent->paramId + 1]->getValue() != NE_NONE)) return NoteEntryWidget_OFF; //Hide CV when extra is set
-		else return parent->getParamQuantity()->getValue();
+		if(parent->getExtra() != NE_NONE) return NoteEntryWidget_OFF; //Hide CV when extra is set
+		else return parent->getValue();
 	}
 	void setValue(float value) override{
-		parent->module->paramQuantities[parent->paramId + 1]->setValue(NE_NONE); //Setting a CV clears extra
-		parent->getParamQuantity()->setValue(value);
+		parent->setExtra(NE_NONE); //Setting a CV clears extra
+		parent->setValue(value);
 	}
 	NoteExtra getExtra() override{
-		return static_cast<NoteExtra>(parent->module->paramQuantities[parent->paramId + 1]->getValue());
+		return parent->getExtra();
 	}
-	void setExtra(NoteExtra value) override{
-		if(static_cast<NoteExtra>(parent->module->paramQuantities[parent->paramId + 1]->getValue()) == value) value = NE_NONE; //Clicking a 2nd time turns it off
-		parent->module->paramQuantities[parent->paramId + 1]->setValue(value);
+	bool setExtra(NoteExtra value) override{
+		if(parent->getExtra() == value) value = NE_NONE; //Clicking a 2nd time turns it off
+		return parent->setExtra(value);
 	}
 
 };
@@ -229,9 +229,10 @@ struct NoteEntryWidgetPanel : NoteEntryWidget{
 	NoteExtra getExtra() override{
 		return extra;
 	}
-	void setExtra(NoteExtra newExtra) override{
+	bool setExtra(NoteExtra newExtra) override{
 		if(newExtra == extra) newExtra = NE_NONE; //Clicking a 2nd time turns it off
 		extra = newExtra;
+		return true;
 	}
 };
 
@@ -248,38 +249,78 @@ struct PassThroughMenuOverlay : ui::MenuOverlay {
 	}
 };
 
-struct NoteWidget : Trimpot {
+struct NoteWidget : widget::OpaqueWidget, NoteControler {
 	NoteEntryWidgetPanel * panelSetter = NULL;
 	bool displayed = true;
 	bool canTie;
+	Trimpot* knob = NULL;
+	SvgWidget* extra = NULL;
+	std::shared_ptr<window::Svg> mute;
+	std::shared_ptr<window::Svg> tie;
 	NoteWidget() {
+	}
+	void init(Module* module, int paramId){
+		knob = new Trimpot();
+		knob->box.pos = Vec(0,0);
+		knob->module = module;
+		knob->paramId = paramId;
+		knob->initParamQuantity();
+		addChild(knob);
+
+		extra = new SvgWidget();
+		extra->box.pos = Vec(0,0);
+		addChild(extra);
+
+		mute = Svg::load(asset::plugin(pluginInstance,"res/mute_off.svg"));
+		tie = Svg::load(asset::plugin(pluginInstance,"res/tie_off.svg"));
+
+		box = knob->box;
 	}
 	void onButton(const widget::Widget::ButtonEvent& e) override {	
 		if(!displayed) return;
 		if (e.action == GLFW_PRESS && (e.mods & RACK_MOD_MASK) == 0) {
 			if(e.button == GLFW_MOUSE_BUTTON_LEFT){
 				// Left Click pulls from panelSetter if present and selected
-				if(panelSetter && panelSetter->value != NoteEntryWidget_OFF){
-					this->getParamQuantity()->setValue(panelSetter->value);
-					panelSetter->setValue(NoteEntryWidget_OFF);
-					e.consume(this);
+				if(panelSetter && (panelSetter->value != NoteEntryWidget_OFF || panelSetter->extra != NE_NONE)){
+					if(panelSetter->value != NoteEntryWidget_OFF){
+						this->setValue(panelSetter->value);
+						panelSetter->setValue(NoteEntryWidget_OFF);
+					}
+					if(this->setExtra(panelSetter->extra)){
+						panelSetter->setExtra(NE_NONE);
+						e.consume(this);
+					}
 					return;
 				}				
 			}else if(e.button == GLFW_MOUSE_BUTTON_RIGHT){
 				// Right click to open context menu
-				Trimpot::destroyTooltip();
+				knob->destroyTooltip();
 				createContextMenu();
 				e.consume(this);
 				return;
 			}
 		}
-		Trimpot::onButton(e);
+		OpaqueWidget::onButton(e);
 	}
 	void onHover(const HoverEvent& e) override{
-		if(displayed) Trimpot::onHover(e);
+		if(displayed) OpaqueWidget::onHover(e);
 	}
 	void onDragStart(const DragStartEvent& e) override{
-		if(displayed) Trimpot::onDragStart(e);
+		if(displayed) OpaqueWidget::onDragStart(e);
+	}
+	float getValue() override{
+		return knob->getParamQuantity()->getValue();
+	}
+	void setValue(float value) override{
+		knob->getParamQuantity()->setValue(value);
+	}
+	NoteExtra getExtra() override{
+		return static_cast<NoteExtra>(knob->module->paramQuantities[knob->paramId + 1]->getValue());
+	}
+	bool setExtra(NoteExtra value) override{
+		if(!canTie && value==NE_TIE) return false; 
+		knob->module->paramQuantities[knob->paramId + 1]->setValue(value);
+		return true;
 	}
 	//void onHoverScroll(const HoverScrollEvent& e) override;
 	void createContextMenu() {
@@ -300,7 +341,22 @@ struct NoteWidget : Trimpot {
 		menu->addChild(noteSelector);
 	}
 	void draw(const DrawArgs& args) override {
-		if(displayed) Trimpot::draw(args);
+		if(displayed){
+			NoteExtra extraValu = static_cast<NoteExtra>(knob->module->paramQuantities[knob->paramId + 1]->getValue());
+			switch(extraValu){
+				case NE_NONE:
+					knob->draw(args);
+					break;
+				case NE_MUTE:
+					extra->setSvg(mute);
+					extra->draw(args);
+					break;
+				case NE_TIE:
+					extra->setSvg(tie);
+					extra->draw(args);
+					break;
+			}
+		}
 	}
 };
 
@@ -349,8 +405,10 @@ struct NoteBlockWidget : widget::Widget{
 		const Vec POS[] = {mm2px(Vec(0,0)),mm2px(Vec(5,5)),mm2px(Vec(10,0)),mm2px(Vec(15,5))};
 		
 		for(int i = 0; i < 4; i++){
-			noteWidget[i] = createParam<NoteWidget>(POS[i], module, paramIndex + 1 + i * 2);
+			noteWidget[i] = createWidget<NoteWidget>(POS[i]);
+			noteWidget[i]->init(module, paramIndex + 1 + i * 2);
 			noteWidget[i]->panelSetter = panelSetter;
+			noteWidget[i]->canTie = i == 0;
 			this->addChild(noteWidget[i]);
 		}
 	}

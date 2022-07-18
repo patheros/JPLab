@@ -8,6 +8,8 @@ void configNoteBlock(Module * module, int paramIndex){
 		//Note CV
 		module->configParam(paramIndex + i * 2 + 1, NoteEntryWidget_MIN, NoteEntryWidget_MAX, 0.0f, "CV", "V");
 		//Note Extra
-		module->configParam(paramIndex + i * 2 + 2, NE_NONE, NE_TIE, NE_NONE, "");
+		auto q = module->configParam(paramIndex + i * 2 + 2, NE_NONE, NE_MUTE, NE_NONE, "");
+		q->snapEnabled = true;
+		if(i == 0) q->maxValue = NE_TIE; //Only allow 1st note in block to be randomized to Tie
 	}
 }
