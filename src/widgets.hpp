@@ -249,22 +249,38 @@ struct PassThroughMenuOverlay : ui::MenuOverlay {
 	}
 };
 
+struct NoteBlockWidgetParent{
+	virtual void updateDisplay();
+};
+
+struct CustomTrimpot : Trimpot{
+	NoteBlockWidgetParent * parent = NULL;
+	void onChange(const ChangeEvent& e) override {
+		parent->updateDisplay();
+		Trimpot::onChange(e);
+	}
+};
+
 struct NoteWidget : widget::OpaqueWidget, NoteControler {
+	NoteBlockWidgetParent * parent = NULL;
 	NoteEntryWidgetPanel * panelSetter = NULL;
 	bool displayed = true;
 	bool canTie;
-	Trimpot* knob = NULL;
+	CustomTrimpot* knob = NULL;
 	SvgWidget* extra = NULL;
 	std::shared_ptr<window::Svg> mute;
 	std::shared_ptr<window::Svg> tie;
 	NoteWidget() {
 	}
-	void init(Module* module, int paramId){
-		knob = new Trimpot();
+	void init(NoteBlockWidgetParent* parent, Module* module, int paramId){
+		this->parent = parent;
+
+		knob = new CustomTrimpot();
 		knob->box.pos = Vec(0,0);
 		knob->module = module;
 		knob->paramId = paramId;
 		knob->initParamQuantity();
+		knob->parent = parent;
 		addChild(knob);
 
 		extra = new SvgWidget();
@@ -320,6 +336,7 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 	bool setExtra(NoteExtra value) override{
 		if(!canTie && value==NE_TIE) return false; 
 		knob->module->paramQuantities[knob->paramId + 1]->setValue(value);
+		parent->updateDisplay();
 		return true;
 	}
 	//void onHoverScroll(const HoverScrollEvent& e) override;
@@ -340,10 +357,11 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 		noteSelector->init();
 		menu->addChild(noteSelector);
 	}
-	void draw(const DrawArgs& args) override {
+	void draw(const DrawArgs& args) override {		
 		if(displayed){
-			NoteExtra extraValu = static_cast<NoteExtra>(knob->module->paramQuantities[knob->paramId + 1]->getValue());
-			switch(extraValu){
+			NoteExtra extraValue = NE_NONE;
+			if(knob->module != NULL) extraValue = static_cast<NoteExtra>(knob->module->paramQuantities[knob->paramId + 1]->getValue());
+			switch(extraValue){
 				case NE_NONE:
 					knob->draw(args);
 					break;
@@ -364,19 +382,151 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 
 void configNoteBlock(Module * module, int paramIndex);
 
-struct SubdivisionWidget : app::SvgSwitch
+struct SubdivisionWidget : app::Switch
 {
+	NoteBlockWidgetParent * parent = NULL;
+	widget::FramebufferWidget* fb;
+	widget::SvgWidget* sw;
+	std::map<int,std::shared_ptr<window::Svg>> frames;
 	int index;	
 
 	SubdivisionWidget() {
-		shadow->opacity = 0.0;
-		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/1.svg")));
-		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/2.svg")));
-		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/3.svg")));
-		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/4.svg")));
-		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/5.svg")));
-		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/6.svg")));
-		addFrame(Svg::load(asset::plugin(pluginInstance,"res/subdiv/7.svg")));
+		fb = new widget::FramebufferWidget;
+		addChild(fb);
+		sw = new widget::SvgWidget;
+		fb->addChild(sw);
+
+		//1 Note
+		addFrame(0x00000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1.svg")));
+		addFrame(0x01000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+
+		//2 Notes
+		addFrame(0x10000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/2.svg")));
+		addFrame(0x11000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/2_ra.svg")));
+		addFrame(0x10100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/2_ar.svg")));
+		addFrame(0x11100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+
+		//3 Notes
+		addFrame(0x20000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3.svg")));
+		addFrame(0x21000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_raa.svg")));
+		addFrame(0x20100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_ara.svg")));
+		addFrame(0x20010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_aar.svg")));
+		addFrame(0x21100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/2_ra.svg")));
+		addFrame(0x21010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_rar.svg")));
+		addFrame(0x20110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_arr.svg")));
+		addFrame(0x21110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+
+		addFrame(0x30000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4.svg")));
+		addFrame(0x31000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_raa.svg")));
+		addFrame(0x30100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_ara.svg")));
+		addFrame(0x30010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_aar.svg")));
+		addFrame(0x31100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_rra.svg")));
+		addFrame(0x31010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_rar.svg")));
+		addFrame(0x30110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_arr.svg")));
+		addFrame(0x31110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+
+		addFrame(0x40000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5.svg")));
+		addFrame(0x41000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5_raa.svg")));
+		addFrame(0x40100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5_ara.svg")));
+		addFrame(0x40010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5_aar.svg")));
+		addFrame(0x41100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_rra.svg")));
+		addFrame(0x41010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5_rar.svg")));
+		addFrame(0x40110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/2_ar.svg")));
+		addFrame(0x41110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+
+		addFrame(0x50000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6.svg")));
+		addFrame(0x50000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6.svg")));
+		addFrame(0x51000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_raa.svg")));
+		addFrame(0x50100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_ara.svg")));
+		addFrame(0x50010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_aar.svg")));
+		addFrame(0x51100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_rra.svg")));
+		addFrame(0x51010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_rar.svg")));
+		addFrame(0x50110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_arr.svg")));
+		addFrame(0x51110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+
+		//4 Notes
+		addFrame(0x60000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7.svg")));
+
+		addFrame(0x61000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_raaa.svg")));
+		addFrame(0x60100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_araa.svg")));
+		addFrame(0x60010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_aara.svg")));
+		addFrame(0x60001, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_aaar.svg")));
+
+		addFrame(0x60011, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_aar.svg")));
+		addFrame(0x60110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_arra.svg")));
+		addFrame(0x61100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5_raa.svg")));
+
+		addFrame(0x60101, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_arar.svg")));
+		addFrame(0x61001, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_raar.svg")));
+		addFrame(0x61010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_rara.svg")));
+
+		addFrame(0x60111, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_arrr.svg")));
+		addFrame(0x61011, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_rarr.svg")));
+		addFrame(0x61101, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_rrar.svg")));
+		addFrame(0x61110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_rrra.svg")));
+	}
+
+	void addFrame(int key, std::shared_ptr<window::Svg> svg) {
+		frames[key] = svg;
+		// If this is our first frame, automatically set SVG and size
+		if (!sw->svg) {
+			sw->setSvg(svg);
+			box.size = sw->box.size;
+			fb->box.size = sw->box.size;
+		}
+	}
+
+	void onChange(const ChangeEvent& e) override {
+		parent->updateDisplay();
+		ParamWidget::onChange(e);
+	}
+
+	void updateDisplay(){		
+		engine::ParamQuantity* pq = getParamQuantity();
+		if (pq) {
+			int index = (int) std::round(pq->getValue() - pq->getMinValue());
+			int key = 0x10000 * index;
+
+			bool mute1 = module->paramQuantities[paramId + 2]->getValue() == NE_MUTE;
+			bool mute2 = module->paramQuantities[paramId + 4]->getValue() == NE_MUTE;
+			bool mute3 = module->paramQuantities[paramId + 6]->getValue() == NE_MUTE;
+			bool mute4 = module->paramQuantities[paramId + 8]->getValue() == NE_MUTE;
+
+			switch(index){
+				case 0:
+					if(mute1) key |= 0x01000;
+					break;
+				case 1:
+					if(mute1) key |= 0x01000;
+					if(mute3) key |= 0x00100;
+					break;
+				case 2:
+				case 5:
+					if(mute1) key |= 0x01000;
+					if(mute2) key |= 0x00100;
+					if(mute3) key |= 0x00010;
+					break;
+				case 3:
+					if(mute1) key |= 0x01000;
+					if(mute2) key |= 0x00100;
+					if(mute4) key |= 0x00010;
+					break;
+				case 4:
+					if(mute1) key |= 0x01000;
+					if(mute3) key |= 0x00100;
+					if(mute4) key |= 0x00010;
+					break;
+				case 6:	
+					if(mute1) key |= 0x01000;
+					if(mute2) key |= 0x00100;
+					if(mute3) key |= 0x00010;
+					if(mute4) key |= 0x00001;
+					break;
+			}
+
+			sw->setSvg(frames[key]);
+			fb->setDirty();
+		}
 	}
 
 	void draw(const DrawArgs& args) override {
@@ -390,23 +540,24 @@ struct SubdivisionWidget : app::SvgSwitch
 			nvgFill(args.vg);
 		}
 
-		SvgSwitch::draw(args);
+		Switch::draw(args);
 	}
 };
 
-struct NoteBlockWidget : widget::Widget{
+struct NoteBlockWidget : widget::Widget, NoteBlockWidgetParent{
 	SubdivisionWidget* subdivWidget;
 	NoteWidget* noteWidget[4];
 	void init(Module * module, NoteEntryWidgetPanel * panelSetter, int index, int paramIndex){		
 		subdivWidget = createParam<SubdivisionWidget>(mm2px(Vec(0,12)), module, paramIndex);
 		subdivWidget->index = index;
+		subdivWidget->parent = this;
 		this->addChild(subdivWidget);
 
 		const Vec POS[] = {mm2px(Vec(0,0)),mm2px(Vec(5,5)),mm2px(Vec(10,0)),mm2px(Vec(15,5))};
 		
 		for(int i = 0; i < 4; i++){
 			noteWidget[i] = createWidget<NoteWidget>(POS[i]);
-			noteWidget[i]->init(module, paramIndex + 1 + i * 2);
+			noteWidget[i]->init(this, module, paramIndex + 1 + i * 2);
 			noteWidget[i]->panelSetter = panelSetter;
 			noteWidget[i]->canTie = i == 0;
 			this->addChild(noteWidget[i]);
@@ -426,6 +577,11 @@ struct NoteBlockWidget : widget::Widget{
 		Widget::step();
 	}
 
+	void updateDisplay() override{
+		subdivWidget->updateDisplay();
+		updateKnobs();
+	}
+
 	void updateKnobs(){
 		const Vec GONE = Vec(-1,-1);
 		const Vec POS[8][4] = {
@@ -434,7 +590,7 @@ struct NoteBlockWidget : widget::Widget{
 			mm2px(Vec(2.5,2.5)),GONE,mm2px(Vec(12.5,2.5)),GONE,
 
 			mm2px(Vec(0,0)),mm2px(Vec(5,5)),mm2px(Vec(12.5,2.5)),GONE,
-			mm2px(Vec(0,0)),GONE,mm2px(Vec(7.5,2.5)),mm2px(Vec(15,5)),
+			mm2px(Vec(0,0)),mm2px(Vec(7.5,2.5)),GONE,mm2px(Vec(15,5)),
 			mm2px(Vec(2.5,2.5)),GONE,mm2px(Vec(10,0)),mm2px(Vec(15,5)),
 
 			mm2px(Vec(0,2.5)),mm2px(Vec(7.5,2.5)),mm2px(Vec(15,2.5)),GONE,
