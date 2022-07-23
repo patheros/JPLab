@@ -117,3 +117,7 @@ inline void countClockLength(int & clockCounter, int & clockLength, bool clockHi
 	}
 	clockCounter++;
 }
+
+inline int rndInt(int max){
+	return std::floor(rack::random::uniform() * max);
+}

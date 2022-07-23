@@ -1,6 +1,7 @@
 #include "plugin.hpp"
 #include "util.hpp"
 #include "widgets.hpp"
+#include "scales.hpp"
 
 #define ROW_COUNT 2
 #define COL_COUNT 8
@@ -54,7 +55,8 @@ struct Sequencer3 : Module, NotePreviewer {
 		configOutput(GATE_OUTPUT,"Gate");
 		configOutput(CV_OUTPUT,"CV");
 
-		configParam(SEQ_LENGTH_PARAM, 1, MAX_SEQ_LENGTH * 4, 8, "Sequence Length");
+		auto lengthQ = configParam(SEQ_LENGTH_PARAM, 1, MAX_SEQ_LENGTH, 8, "Sequence Length");
+		lengthQ->randomizeEnabled = false;
 
 		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
 			configNoteBlock(this,NOTE_BLOCK_PARAM + ni * NOTE_BLOCK_PARAM_COUNT, ni == 0);
@@ -136,7 +138,7 @@ struct Sequencer3 : Module, NotePreviewer {
 			currentPulse++;
 
 			//Wrap Pulse
-			int maxPulse = params[SEQ_LENGTH_PARAM].getValue() * 6; //6 Pulses per Sixtenth Note			
+			int maxPulse = params[SEQ_LENGTH_PARAM].getValue() * 24; //24 Pulses per Sixtenth Note			
 			if(currentPulse >= maxPulse){
 				currentPulse = 0;
 			}
@@ -162,6 +164,138 @@ struct Sequencer3 : Module, NotePreviewer {
 	void setPreviewNote(float note) override{
 		previewNote = note;
 	}
+
+	void onRandomize (const RandomizeEvent& e) override {
+  		Module::onRandomize(e);
+
+		using rack::random::uniform;
+
+		randomizeCVs();
+		randomizeRythm();
+
+	  	//Randomize Notes
+  		int length = 1;
+  		length += rndInt(7);
+  		if(uniform() < 0.3) length += rndInt(7);
+  		//if(uniform() < 0.1) length += rndInt(4); Causes issues if last block is a tripplet, leaving this out for now
+  		params[SEQ_LENGTH_PARAM].setValue(length);
+  	}
+
+  	void randomizeCVs(){
+		using rack::random::uniform;  		
+  		
+  		//Get Scale
+  		int scale = std::floor(uniform()*NUM_OF_SCALES);
+  		std::vector<int> notes = SCALES[scale];
+  		int semitoneOffset = rndInt(12)-6;
+  		if(uniform() < 0.25) semitoneOffset -= 12;
+  		int size = notes.size();
+
+  		//Misc
+  		float highVsLowOctaveOdds = 0.25 + 0.5 * uniform();
+  		float octaveShiftOdds = uniform() * 0.15 + (uniform() < 0.3 ? 0.15 : 0);
+
+  		float wholeBlockSameOdds = uniform() * 0.15 + (uniform() < 0.3 ? 0.15 : 0);
+
+  		float extrRootNoteOdds = uniform() * 0.15 + (uniform() < 0.3 ? 0.15 : 0);
+  		float lowNoteOdds = uniform() * 0.3 + (uniform() < 0.3 ? 0.3 : 0);
+  		float hiteNoteOdds = uniform() * 0.3 + (uniform() < 0.3 ? 0.3 : 0);
+
+  		DEBUG("randomizeCVs");
+
+  		//Walk Block
+  		for(int bi = 0; bi < MAX_SEQ_LENGTH; bi++){
+  			bool wholeBlockSame = uniform() < wholeBlockSameOdds;
+  			float prevCV = 0;
+	  		for(int ni = 0; ni < 4; ni++){
+	  			int ri;
+	  			if(uniform() < extrRootNoteOdds){
+	  				//Extra Chance to be root note
+	  				ri = 0;
+	  			}else{
+		  			ri = rndInt(size);
+		  			//Extra Chance to be a low note
+		  			if(uniform() < lowNoteOdds){
+		  				ri /= 2;
+		  			}
+		  			if(uniform() < hiteNoteOdds){
+		  				ri = ri * 2;
+		  				if(ri >= size) ri = size-1;
+		  			}
+		  		}
+
+	  			float cv = (notes[ri]+semitoneOffset) / 12.f;
+	  			DEBUG("ri: %i cv: %f",ri,cv);
+
+	  			//Chance for octave shift
+	  			if(uniform() < octaveShiftOdds){
+	  				if(uniform() < highVsLowOctaveOdds){
+	  					if(cv <= NoteEntryWidget_MAX + 1){
+	  						cv += 1;
+	  						DEBUG("+1 octave cv: %f",cv);
+	  					}
+	  				}else{
+	  					if(cv >= NoteEntryWidget_MIN + 1){
+	  						cv -= 1;
+	  						DEBUG("-1 octave cv: %f",cv);
+	  					}
+	  				}
+	  			}
+
+
+	  			//Replace cv with previous if wholeBlockSame and not the first note in the block
+	  			if(ni > 0 && wholeBlockSame){
+	  				cv = prevCV;
+	  				DEBUG("wholeBlockSame cv: %f",cv);
+	  			}
+	  			params[bi * NOTE_BLOCK_PARAM_COUNT + 1 + ni * 2].setValue(cv);
+	  			prevCV = cv;
+	  		}
+	  	}
+  	}
+
+  	void randomizeRythm(){
+		using rack::random::uniform;  		
+  		
+		bool allowTripplets = uniform() < 0.3;
+		bool allTippletsAndQuarter = uniform() < 0.15;
+
+		float extraQuarterOdds = uniform() * 0.3 + (uniform() < 0.3 ? 0.3 : 0);
+		float extraEighthOdds = uniform() * 0.3 + (uniform() < 0.3 ? 0.3 : 0);
+		//Extra Extra Low Energy Chance
+		if(uniform() < 0.3){
+			extraQuarterOdds += 0.5;
+			extraEighthOdds += 0.5;
+		}
+		//Extra Extra High Energy Chance
+		if(uniform() < 0.3){
+			extraQuarterOdds /= 3;
+			extraEighthOdds /= 3;
+		}
+
+  		//Walk Block
+  		for(int bi = 0; bi < MAX_SEQ_LENGTH; bi++){
+  			//Set Sub Division
+  			int subdivision;
+  			if(allTippletsAndQuarter){
+  				subdivision = uniform() < 0.3 ?  SubDiv_Quarter : SubDiv_Tipplets;
+  			}else{
+  				subdivision = 1 + rndInt(7);
+  				if(!allowTripplets && subdivision == SubDiv_Tipplets) subdivision = SubDiv_Eighth;
+  				if(uniform() < extraQuarterOdds) subdivision = SubDiv_Quarter;
+  				if(uniform() < extraEighthOdds) subdivision = SubDiv_Eighth;
+  			}
+  			params[bi * NOTE_BLOCK_PARAM_COUNT].setValue(subdivision);
+
+  			//Set Note Extra
+	  		for(int ni = 0; ni < 4; ni++){
+	  			NoteExtra noteExtra = NE_NONE;
+	  			if(uniform() < 0.1) noteExtra = NE_MUTE;
+	  			if(ni == 0 && bi != 0 && uniform() < 0.05)  noteExtra = NE_TIE;
+	  			params[bi * NOTE_BLOCK_PARAM_COUNT + 2 + ni * 2].setValue(noteExtra);
+	  		}
+	  	}
+  	}
 };
 
 struct Sequencer3Widget : ModuleWidget {

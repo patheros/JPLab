@@ -17,15 +17,19 @@ struct ColoredSvgWidget : widget ::SvgWidget
 };
 
 #define ROOT_OFFSET 7.f/12.f
-#define NoteEntryWidget_MIN (0.f - ROOT_OFFSET)
-#define NoteEntryWidget_MAX (3.f - ROOT_OFFSET - 1.f/12.f)
+#define NoteEntryWidget_MIN (-1.f - ROOT_OFFSET)
+#define NoteEntryWidget_MAX (2.f - ROOT_OFFSET - 1.f/12.f)
 #define NOTE_BLOCK_PARAM_COUNT 9
 
 static const int NoteEntryWidget_OFF = -19;
 
-static const NVGcolor COLOR_ACTIVE_NOTE = nvgRGB(0xff,0x66,0x00);
+static const NVGcolor COLOR_ACTIVE_NOTE = nvgRGB(0xff,0x80,0x2b);
 static const NVGcolor COLOR_TRANSPARENT = nvgRGBA(0x00,0x00,0x00,0x00);
-static const NVGcolor COLOR_LAST_NOTE = nvgRGB(0x00,0xff,0x15);
+static const NVGcolor COLOR_LAST_NOTE = nvgRGB(0x2b,0xff,0xea);
+
+static const NVGcolor COLOR_MARGIN = nvgRGB(0x12,0x12,0x12);
+static const NVGcolor COLOR_BLACK_NOTE_BASE = nvgRGB(0x30,0x30,0x30);
+static const NVGcolor COLOR_WHITE_NOTE_BASE = nvgRGB(0x60,0x60,0x60);
 
 void configNoteBlock(Module * module, int paramIndex, bool firstBlock);
 
@@ -43,6 +47,14 @@ enum NoteExtra{
 	NE_TIE,
 };
 
+const int SubDiv_Quarter = 1;
+const int SubDiv_Eighth = 2;
+const int SubDiv_Quarter_Quarter_Half = 3;
+const int SubDiv_Quarter_Half_Quarter = 4;
+const int SubDiv_Half_Quarter_Quarter = 5;
+const int SubDiv_Tipplets = 6;
+const int SubDiv_Sixteenth = 7;
+
 struct NoteControler {
 	virtual float getValue(){ return 0; }
 	virtual void setValue(float value){}
@@ -59,6 +71,7 @@ struct NoteEntryButton : OpaqueWidget {
 	NoteControler * parent;
 	float value;
 	float margin;
+	bool isWhite;
 	void draw(const DrawArgs& args) override {
 
 		Rect r = box.zeroPos();
@@ -67,18 +80,18 @@ struct NoteEntryButton : OpaqueWidget {
 
 		nvgBeginPath(args.vg);
 		nvgRect(args.vg, RECT_ARGS(rMargin));
-		nvgFillColor(args.vg, nvgRGB(0x12, 0x12, 0x12));
+		nvgFillColor(args.vg, COLOR_MARGIN);
 		nvgFill(args.vg);
 
 		nvgBeginPath(args.vg);
 		nvgRect(args.vg, RECT_ARGS(r));
-		float brightness = 0;
+		auto noteColor = isWhite ? COLOR_WHITE_NOTE_BASE : COLOR_BLACK_NOTE_BASE;
 		if (parent) {
-			brightness = 1 - std::abs(value - parent->getValue()) * 12;
+			float brightness = 1 - std::abs(value - parent->getValue()) * 12;
 			if(brightness < 0) brightness = 0;
+			noteColor = nvgLerpRGBA(noteColor,COLOR_LAST_NOTE,brightness);
 		}
-		int c = 64 + 191 * brightness;
-		nvgFillColor(args.vg, nvgRGB(c, c, c));
+		nvgFillColor(args.vg, noteColor);
 		nvgFill(args.vg);
 	}
 	void onButton(const widget::Widget::ButtonEvent& e) override {
@@ -186,8 +199,9 @@ struct NoteEntryWidget : LedDisplay, NoteControler {
 				// button->box.pos = noteAbsPositions[note] - box.pos;
 				// button->box.size = noteSizes[note];
 				button->margin = margin;
-				button->value = 3 - (note / 12.f + octave) - ROOT_OFFSET;
+				button->value = 3 - (note / 12.f + (octave+1)) - ROOT_OFFSET;
 				button->parent = this;
+				button->isWhite = true;
 				addChild(button);
 			}
 		}
@@ -201,8 +215,9 @@ struct NoteEntryWidget : LedDisplay, NoteControler {
 				// button->box.pos = noteAbsPositions[note] - box.pos;
 				// button->box.size = noteSizes[note];
 				button->margin = margin;
-				button->value = 3 - (note / 12.f + octave) - ROOT_OFFSET;
+				button->value = 3 - (note / 12.f + (octave+1)) - ROOT_OFFSET;
 				button->parent = this;
+				button->isWhite = false;
 				addChild(button);
 			}
 		}
@@ -306,7 +321,7 @@ struct CustomTrimpot : app::SvgKnob{
 
 		bg = new widget::SvgWidget;
 		ring = new ColoredSvgWidget;
-		ring->color = nvgRGB(0xff,0x00,0x00);
+		ring->color = COLOR_TRANSPARENT;
 		fb->addChildBelow(ring, tw);
 		fb->addChildBelow(bg, tw);
 
@@ -360,7 +375,7 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 
 		extra = new ColoredSvgWidget();
 		extra->box.pos = Vec(0,0);
-		extra->color = nvgRGB(0xff,0x00,0x00);
+		extra->color = COLOR_MARGIN;
 		addChild(extra);
 
 		mute = Svg::load(asset::plugin(pluginInstance,"res/mute_off.svg"));
@@ -495,7 +510,7 @@ struct SubdivisionWidget : app::Switch
 		fb->addChild(sw);
 		for(int i = 0; i < 4; i++){
 			noteLights[i] = new ColoredSvgWidget;
-			noteLights[i]->color = nvgRGB(0xff,0x00,0x00);
+			noteLights[i]->color = COLOR_TRANSPARENT;
 			fb->addChild(noteLights[i]);
 		}
 
@@ -532,7 +547,7 @@ struct SubdivisionWidget : app::Switch
 
 		Frame _6 = 		makeFrame("6",		"6_a1",		"6_a2",		"6_a3",		"");
 		Frame _6_raa = 	makeFrame("6_raa",	"6_r1",		"6_a2",		"6_a3",		"");
-		Frame _6_ara = 	makeFrame("6_ara",	"6_a1f",	"6_r2",		"6_a3f",	"");
+		Frame _6_ara = 	makeFrame("6_ara",	"6_a1",		"6_r2",		"6_a3",		"");
 		Frame _6_aar = 	makeFrame("6_aar",	"6_a1",		"6_a2",		"6_r3",		"");
 		Frame _6_rra = 	makeFrame("6_rra",	"6_r1",		"6_r2",		"6_a3f",	"");
 		Frame _6_rar = 	makeFrame("6_rar",	"6_r1",		"6_a2f",	"6_r3",		"");
@@ -623,6 +638,8 @@ struct SubdivisionWidget : app::Switch
 		addFrame(0x71011, _7_rarr);
 		addFrame(0x71101, _7_rrar);
 		addFrame(0x71110, _4_rra);
+
+		addFrame(0x71111, _1_r);
 	}
 
 	void setColor(int i, NVGcolor color){
@@ -721,18 +738,20 @@ struct NoteBlockWidget : widget::Widget, NoteBlockWidgetParent{
 		subdivWidget->parent = this;
 		this->addChild(subdivWidget);
 
-		const Vec POS[] = {mm2px(Vec(0,0)),mm2px(Vec(5,5)),mm2px(Vec(10,0)),mm2px(Vec(15,5))};
-		
 		for(int i = 0; i < 4; i++){
-			noteWidget[i] = createWidget<NoteWidget>(POS[i]);
+			noteWidget[i] = createWidget<NoteWidget>(Vec(0,0)); 
 			noteWidget[i]->init(this, module, paramIndex + 1 + i * 2, index, i);
 			noteWidget[i]->panelSetter = panelSetter;
 			noteWidget[i]->canTie = i == 0 && index != 0;
 			this->addChild(noteWidget[i]);
 		}
+
+		//Put notes in the center so the panel looks nice in the library
+		subdiv = 1;
+		updateKnobs();
 	}
 
-	int subdiv = -1;
+	int subdiv = 1; //Notes
 
 	void step() override {
 		if(subdivWidget->module != NULL){

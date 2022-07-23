@@ -3,14 +3,17 @@
 std::vector<std::string> SUBDIVISION_LABELS = {"One","Two","Three (QQ-H)","Three (Q-H-Q)","Three (H-QQ)","Tripplets","Four"};
 
 void configNoteBlock(Module * module, int paramIndex, bool firstBlock){
-	module->configSwitch(paramIndex, 1, 7, 1, "Subdivisions", SUBDIVISION_LABELS);
+	auto subdivQ = module->configSwitch(paramIndex, 1, 7, 1, "Subdivisions", SUBDIVISION_LABELS);
+	subdivQ->randomizeEnabled = false;
 	for(int i = 0; i < 4; i++){
 		//Note CV
-		module->configParam(paramIndex + i * 2 + 1, NoteEntryWidget_MIN, NoteEntryWidget_MAX, 0.0f, "CV", "V");
+		auto cvQ = module->configParam(paramIndex + i * 2 + 1, NoteEntryWidget_MIN, NoteEntryWidget_MAX, 0.0f, "CV", "V");
+		cvQ->randomizeEnabled = false;
 		//Note Extra
-		auto q = module->configParam(paramIndex + i * 2 + 2, NE_NONE, NE_MUTE, NE_NONE, "");
-		q->snapEnabled = true;
-		if(!firstBlock && i == 0) q->maxValue = NE_TIE; //Only allow 1st note in block to be randomized to Tie
+		auto extraQ = module->configParam(paramIndex + i * 2 + 2, NE_NONE, NE_MUTE, NE_NONE, "");
+		extraQ->snapEnabled = true;
+		extraQ->randomizeEnabled = false;
+		if(!firstBlock && i == 0) extraQ->maxValue = NE_TIE; //Only allow 1st note in block to be randomized to Tie
 	}
 }
 
