@@ -21,6 +21,9 @@ struct ColoredSvgWidget : widget ::SvgWidget
 #define NoteEntryWidget_MAX (3.f - ROOT_OFFSET - 1.f/12.f)
 static const int NoteEntryWidget_OFF = -19;
 
+static const NVGcolor COLOR_ACTIVE_NOTE = nvgRGB(0xff,0x66,0x00);
+static const NVGcolor COLOR_TRANSPARENT = nvgRGBA(0x00,0x00,0x00,0x00);
+
 enum NoteExtra{
 	NE_NONE,
 	NE_MUTE,
@@ -294,6 +297,10 @@ struct CustomTrimpot : app::SvgKnob{
 		parent->updateDisplay();
 		SvgKnob::onChange(e);
 	}	
+	void setColor(NVGcolor color){
+		ring->color = color;
+		fb->dirty = true;
+	}
 };
 
 struct NoteWidget : widget::OpaqueWidget, NoteControler {
@@ -327,6 +334,11 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 		tie = Svg::load(asset::plugin(pluginInstance,"res/tie_off.svg"));
 
 		box = knob->box;
+	}
+	void setColor(NVGcolor color){
+		extra->color = color;
+		extra->color.a = 1.f; //Convert Transparent to Black for the extra SVG
+		knob->setColor(color);
 	}
 	void onButton(const widget::Widget::ButtonEvent& e) override {	
 		if(!displayed) return;
@@ -417,6 +429,12 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 #define NOTE_BLOCK_PARAM_COUNT 9
 
 void configNoteBlock(Module * module, int paramIndex, bool firstBlock);
+
+int getNoteIndexForPulse(int blockType, int pulseInBlock);
+
+void getNoteAndBlock(Module* module, int baseParamIndex, int pulse, int & block, int & noteIndex);
+
+void getOuputValues(Module* module, int baseParamIndex, int pulse, float& cv, bool& updateCV, bool& gateHigh);
 
 struct SubdivisionWidget : app::Switch
 {
@@ -513,73 +531,81 @@ struct SubdivisionWidget : app::Switch
 		Frame _7_rrar = makeFrame("7_rrar",	"2_r1",		"",			"7_a3f",	"7_r4");
 
 		//1 Note
-		addFrame(0x00000, _1);
-		addFrame(0x01000, _1_r);
+		addFrame(0x10000, _1);
+		addFrame(0x11000, _1_r);
 
 		//2 Notes
-		addFrame(0x10000, _2);
-		addFrame(0x11000, _2_ra);
-		addFrame(0x10100, _2_ar);
-		addFrame(0x11100, _1_r);
+		addFrame(0x20000, _2);
+		addFrame(0x21000, _2_ra);
+		addFrame(0x20100, _2_ar);
+		addFrame(0x21100, _1_r);
 
 		//3 Notes
-		addFrame(0x20000, _3);
-		addFrame(0x21000, _3_raa);
-		addFrame(0x20100, _3_ara);
-		addFrame(0x20010, _3_aar);
-		addFrame(0x21100, _2_ra);
-		addFrame(0x21010, _3_rar);
-		addFrame(0x20110, _3_arr);
-		addFrame(0x21110, _1_r);
-
-		addFrame(0x30000, _4);
-		addFrame(0x31000, _4_raa);
-		addFrame(0x30100, _4_ara);
-		addFrame(0x30010, _4_aar);
-		addFrame(0x31100, _4_rra);
-		addFrame(0x31010, _4_rar);
+		addFrame(0x30000, _3);
+		addFrame(0x31000, _3_raa);
+		addFrame(0x30100, _3_ara);
+		addFrame(0x30010, _3_aar);
+		addFrame(0x31100, _2_ra);
+		addFrame(0x31010, _3_rar);
 		addFrame(0x30110, _3_arr);
 		addFrame(0x31110, _1_r);
 
-		addFrame(0x40000, _5);
-		addFrame(0x41000, _5_raa);
-		addFrame(0x40100, _5_ara);
-		addFrame(0x40010, _5_aar);
+		addFrame(0x40000, _4);
+		addFrame(0x41000, _4_raa);
+		addFrame(0x40100, _4_ara);
+		addFrame(0x40010, _4_aar);
 		addFrame(0x41100, _4_rra);
-		addFrame(0x41010, _5_rar);
-		addFrame(0x40110, _2_ar);
+		addFrame(0x41010, _4_rar);
+		addFrame(0x40110, _3_arr);
 		addFrame(0x41110, _1_r);
 
-		addFrame(0x50000, _6);
-		addFrame(0x50000, _6);
-		addFrame(0x51000, _6_raa);
-		addFrame(0x50100, _6_ara);
-		addFrame(0x50010, _6_aar);
-		addFrame(0x51100, _6_rra);
-		addFrame(0x51010, _6_rar);
-		addFrame(0x50110, _6_arr);
+		addFrame(0x50000, _5);
+		addFrame(0x51000, _5_raa);
+		addFrame(0x50100, _5_ara);
+		addFrame(0x50010, _5_aar);
+		addFrame(0x51100, _4_rra);
+		addFrame(0x51010, _5_rar);
+		addFrame(0x50110, _2_ar);
 		addFrame(0x51110, _1_r);
 
+		addFrame(0x60000, _6);
+		addFrame(0x60000, _6);
+		addFrame(0x61000, _6_raa);
+		addFrame(0x60100, _6_ara);
+		addFrame(0x60010, _6_aar);
+		addFrame(0x61100, _6_rra);
+		addFrame(0x61010, _6_rar);
+		addFrame(0x60110, _6_arr);
+		addFrame(0x61110, _1_r);
+
 		//4 Notes
-		addFrame(0x60000, _7);
+		addFrame(0x70000, _7);
 
-		addFrame(0x61000, _7_raaa);
-		addFrame(0x60100, _7_araa);
-		addFrame(0x60010, _7_aara);
-		addFrame(0x60001, _7_aaar);
+		addFrame(0x71000, _7_raaa);
+		addFrame(0x70100, _7_araa);
+		addFrame(0x70010, _7_aara);
+		addFrame(0x70001, _7_aaar);
 
-		addFrame(0x60011, _3_aar);
-		addFrame(0x60110, _7_arra);
-		addFrame(0x61100, _5_raa);
+		addFrame(0x70011, _3_aar);
+		addFrame(0x70110, _7_arra);
+		addFrame(0x71100, _5_raa);
 
-		addFrame(0x60101, _7_arar);
-		addFrame(0x61001, _7_raar);
-		addFrame(0x61010, _7_rara);
+		addFrame(0x70101, _7_arar);
+		addFrame(0x71001, _7_raar);
+		addFrame(0x71010, _7_rara);
 
-		addFrame(0x60111, _3_arr);
-		addFrame(0x61011, _7_rarr);
-		addFrame(0x61101, _7_rrar);
-		addFrame(0x61110, _4_rra);
+		addFrame(0x70111, _3_arr);
+		addFrame(0x71011, _7_rarr);
+		addFrame(0x71101, _7_rrar);
+		addFrame(0x71110, _4_rra);
+	}
+
+	void setColors(NVGcolor color1, NVGcolor color2, NVGcolor color3, NVGcolor color4){
+		noteLights[0]->color = color1;
+		noteLights[1]->color = color2;
+		noteLights[2]->color = color3;
+		noteLights[3]->color = color4;
+		fb->dirty = true;
 	}
 
 	void addFrame(int key, Frame frame) {
@@ -600,7 +626,7 @@ struct SubdivisionWidget : app::Switch
 	void updateDisplay(){		
 		engine::ParamQuantity* pq = getParamQuantity();
 		if (pq) {
-			int index = (int) std::round(pq->getValue() - pq->getMinValue());
+			int index = (int) std::round(pq->getValue());
 			int key = 0x10000 * index;
 
 			bool mute1 = module->paramQuantities[paramId + 2]->getValue() == NE_MUTE;
@@ -609,30 +635,30 @@ struct SubdivisionWidget : app::Switch
 			bool mute4 = module->paramQuantities[paramId + 8]->getValue() == NE_MUTE;
 
 			switch(index){
-				case 0:
+				case 1:
 					if(mute1) key |= 0x01000;
 					break;
-				case 1:
+				case 2:
 					if(mute1) key |= 0x01000;
 					if(mute3) key |= 0x00100;
 					break;
-				case 2:
-				case 5:
+				case 3:
+				case 6:
 					if(mute1) key |= 0x01000;
 					if(mute2) key |= 0x00100;
 					if(mute3) key |= 0x00010;
 					break;
-				case 3:
+				case 4:
 					if(mute1) key |= 0x01000;
 					if(mute2) key |= 0x00100;
 					if(mute4) key |= 0x00010;
 					break;
-				case 4:
+				case 5:
 					if(mute1) key |= 0x01000;
 					if(mute3) key |= 0x00100;
 					if(mute4) key |= 0x00010;
 					break;
-				case 6:	
+				case 7:	
 					if(mute1) key |= 0x01000;
 					if(mute2) key |= 0x00100;
 					if(mute3) key |= 0x00010;
@@ -695,6 +721,14 @@ struct NoteBlockWidget : widget::Widget, NoteBlockWidgetParent{
 			}
 		}
 		Widget::step();
+	}
+
+	void setColors(NVGcolor color1, NVGcolor color2, NVGcolor color3, NVGcolor color4){
+		noteWidget[0]->setColor(color1);
+		noteWidget[1]->setColor(color2);
+		noteWidget[2]->setColor(color3);
+		noteWidget[3]->setColor(color4);
+		subdivWidget->setColors(color1,color2,color3,color4);
 	}
 
 	void updateDisplay() override{

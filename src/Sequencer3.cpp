@@ -33,16 +33,18 @@ struct Sequencer3 : Module, NotePreviewer {
 
 	//Persistant State
 
-	int currentStep;
-	int currentBeat;
-	int currentDur;
-	bool muted;
+	int clockCounter;
+	int clockLength;
+	int currentPulse;
+	int pulseCounter;
+	bool clockHigh;
 
 	//Non Persistant State
-
-	bool clockHigh;
+	
 	bool resetHigh;
-	float previewNote;
+	float previewNote;	
+
+	bool hasHadFirstClockHigh;	
 
 	Sequencer3() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -66,85 +68,95 @@ struct Sequencer3 : Module, NotePreviewer {
 	}
 
 	void initalize(){
+		hasHadFirstClockHigh = false;
+
 		clockHigh = false;
 		resetHigh = false;
 
+		clockCounter = 0;
+		clockLength = 0;
+
 		previewNote = NoteEntryWidget_OFF;
 
-		currentStep = -1;
-		currentBeat = -1;
-		currentDur = 0;
+		currentPulse = -1;
+		pulseCounter = 0;
+	}
 
-		muted = false;
+	json_t *dataToJson() override{
+		json_t *jobj = json_object();
+
+		json_object_set_new(jobj, "clockCounter", json_integer(clockCounter));
+		json_object_set_new(jobj, "clockLength", json_integer(clockLength));
+		json_object_set_new(jobj, "currentPulse", json_integer(currentPulse));
+		json_object_set_new(jobj, "pulseCounter", json_integer(pulseCounter));
+		json_object_set_new(jobj, "clockHigh", json_bool(clockHigh));
+
+		return jobj;
+	}
+
+	void dataFromJson(json_t *jobj) override {		
+
+		clockCounter = json_integer_value(json_object_get(jobj, "clockCounter"));
+		clockLength = json_integer_value(json_object_get(jobj, "clockLength"));
+		currentPulse = json_integer_value(json_object_get(jobj, "currentPulse"));
+		pulseCounter = json_integer_value(json_object_get(jobj, "pulseCounter"));	
+		clockHigh = json_is_true(json_object_get(jobj, "clockHigh"));	
 	}
 
 	void process(const ProcessArgs& args) override {
-		// //Reset Logic
-		// if(schmittTrigger(resetHigh,inputs[RESET_INPUT].getVoltage())){
-		// 	currentStep = -1;
-		// 	currentBeat = -1;
-		// 	currentDur = 0;
-		// 	muted = false;
-		// }
 
-		// //Clock Logic
-		// if(schmittTrigger(clockHigh,inputs[CLOCK_INPUT].getVoltage())){
-		// 	int maxStep = params[SEQ_LENGTH_PARAM].getValue();
+		bool clockHighEvent = schmittTrigger(clockHigh,inputs[CLOCK_INPUT].getVoltage());	
+		if(clockHighEvent && !hasHadFirstClockHigh){
+			clockHighEvent = false;
+			hasHadFirstClockHigh = true;
+			clockCounter = 0;
+		}
+		countClockLength(clockCounter,clockLength,clockHighEvent);
 
-		// 	bool resetCycle = false;
-		// 	bool doNextStep = false;
+		if(clockLength <= 0) return;
+		// DEBUG("clockLength:%i clockCounter:%i",clockLength,clockCounter);
 
-		// 	currentBeat++;
-		// 	if(currentBeat >= maxStep) resetCycle = true;	
+		bool pulseEvent = false;
+		if(pulseCounter > 0){
+			pulseCounter--;
+		}else{
+			pulseCounter = clockLength / 24; //Pulses are 24 Pulses per Quarter Note
+			pulseEvent = true;
+		}
 
-		// 	if(currentDur > 1){
-		// 		currentDur--;
-		// 	}else{
-		// 		doNextStep = true;
-		// 		currentStep++;
-		// 	}					
+		//Reset Logic
+		if(schmittTrigger(resetHigh,inputs[RESET_INPUT].getVoltage())){
+			currentPulse = -1;
+			pulseCounter = 0;
+		}
 
-		// 	if(resetCycle){
-		// 		currentStep = 0;
-		// 		currentBeat = 0;
-		// 	}
+		//Clock Logic
+		if(pulseEvent){
+			//Incremnt Pulse
+			currentPulse++;
 
-		// 	if(doNextStep){
-		// 		//Use Duration from Current Step
-		// 		int dur = params[MAIN_SEQ_DURATION_PARAM + currentStep].getValue();
-		// 		muted = dur <= 0;
-		// 		if(muted) dur = -dur + 1;
-		// 		currentDur = dur;
-		// 	}
-		// }
+			//Wrap Pulse
+			int maxPulse = params[SEQ_LENGTH_PARAM].getValue() * 6; //6 Pulses per Sixtenth Note			
+			if(currentPulse >= maxPulse){
+				currentPulse = 0;
+			}
 
-		// //Update Outputs
-		// if(previewNote != NoteEntryWidget_OFF){
-		// 	//Preview Note
-		// 	outputs[CV_OUTPUT].setVoltage(previewNote);
-		// 	outputs[GATE_OUTPUT].setVoltage(clockHigh ? 10 : 0);
-		// }else{
-		// 	if(muted){
-		// 		//CV Holds Value
-		// 		outputs[GATE_OUTPUT].setVoltage(0);
-		// 	}else{
-		// 		float val = 0;
-		// 		int stepIndex = currentStep;
-		// 		if(stepIndex >= 0 && stepIndex < MAX_SEQ_LENGTH){ 
-		// 			val = params[MAIN_SEQ_NOTE_CV_PARAM + stepIndex].getValue();
-		// 		}
-		// 		float cv = val;
-		// 		outputs[CV_OUTPUT].setVoltage(cv);
-		// 		outputs[GATE_OUTPUT].setVoltage((clockHigh || currentDur > 1) ? 10 : 0);
-		// 	}
-		// }
+			float cv;
+			bool updateCV;
+			bool gateHigh;
+			getOuputValues(this,NOTE_BLOCK_PARAM,currentPulse,cv,updateCV,gateHigh);
+			if(updateCV){
+				outputs[CV_OUTPUT].setVoltage(cv);
+			}
+			outputs[GATE_OUTPUT].setVoltage(gateHigh ? 10 : 0);		
+		}
 
-		//Update Lights
-		// for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
-		// 	lights[MAIN_SEQ_ACTIVE_LIGHT + ni * 3 + 2].setBrightness(currentStep == ni ? 1 : 0);
-		// }
-		
-		outputs[CV_OUTPUT].setVoltage(previewNote);
+		//Overide Output when preview is high
+		if(previewNote != NoteEntryWidget_OFF){
+			//Preview Note
+			outputs[CV_OUTPUT].setVoltage(previewNote);
+			outputs[GATE_OUTPUT].setVoltage(clockHigh ? 10 : 0);
+		}
 	}
 
 	void setPreviewNote(float note) override{
@@ -154,6 +166,7 @@ struct Sequencer3 : Module, NotePreviewer {
 
 struct Sequencer3Widget : ModuleWidget {
 	NoteEntryWidgetPanel * noteEntry;
+	NoteBlockWidget* noteBlocks[MAX_SEQ_LENGTH];
 	Sequencer3Widget(Sequencer3* module) {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/Blank36hp.svg")));
@@ -211,10 +224,12 @@ struct Sequencer3Widget : ModuleWidget {
 			float dy2 = dy * 2.65;
 			for(int row = 0; row < ROW_COUNT; row ++){
 				for(int col = 0; col < COL_COUNT; col++){
-					int i = (row * COL_COUNT + col) * NOTE_BLOCK_PARAM_COUNT;
-					auto noteBlock = createWidget<NoteBlockWidget>(Vec(0.2 * dx + dx2 * col, dy * 0.5 + dy2 * row));
-					noteBlock->init(module, noteEntry, i, Sequencer3::NOTE_BLOCK_PARAM + i);
+					int i = (row * COL_COUNT + col);
+					int i2 = i * NOTE_BLOCK_PARAM_COUNT;
+					NoteBlockWidget* noteBlock = createWidget<NoteBlockWidget>(Vec(0.2 * dx + dx2 * col, dy * 0.5 + dy2 * row));
+					noteBlock->init(module, noteEntry, i2, Sequencer3::NOTE_BLOCK_PARAM + i2);
 					addChild(noteBlock);		
+					noteBlocks[i] = noteBlock;
 				}
 			}
 		}
@@ -226,6 +241,40 @@ struct Sequencer3Widget : ModuleWidget {
 		// quantizerDisplay->box.size = mm2px(Vec(15.24, 55.88));
 		// quantizerDisplay->setModule(module);
 		// addChild(quantizerDisplay);
+	}
+
+	int prevPulse;
+
+	void step() override {
+		ModuleWidget::step();
+		
+		Sequencer3* module = dynamic_cast<Sequencer3*>(this->module);
+		if(module == NULL) return;
+
+		int pulse = module->currentPulse;
+
+		if(prevPulse != pulse){
+			prevPulse = pulse;
+			int block, noteIndex;
+			getNoteAndBlock(module,Sequencer3::NOTE_BLOCK_PARAM,pulse,block,noteIndex);
+
+
+			//DEBUG("pulse:%i block:%i blockType:%i pulseInBlock:%i noteIndexInBlock:%i ",pulse,block,blockType,pulseInBlock,noteIndexInBlock);
+			
+			for(int bi = 0; bi < MAX_SEQ_LENGTH; bi ++){
+				if(bi == block){
+					switch(noteIndex){
+						case 0:	noteBlocks[bi]->setColors(COLOR_ACTIVE_NOTE,COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_TRANSPARENT); break;
+						case 1:	noteBlocks[bi]->setColors(COLOR_TRANSPARENT,COLOR_ACTIVE_NOTE,COLOR_TRANSPARENT,COLOR_TRANSPARENT); break;
+						case 2:	noteBlocks[bi]->setColors(COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_ACTIVE_NOTE,COLOR_TRANSPARENT); break;
+						case 3:	noteBlocks[bi]->setColors(COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_ACTIVE_NOTE); break;
+					}
+				}else{
+					noteBlocks[bi]->setColors(COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_TRANSPARENT);	
+				}
+				noteBlocks[bi]->updateDisplay();
+			}
+		}
 	}
 
 	// void appendContextMenu(Menu* menu) override {

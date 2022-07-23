@@ -14,6 +14,154 @@ void configNoteBlock(Module * module, int paramIndex, bool firstBlock){
 	}
 }
 
+int getNoteIndexForPulse(int blockType, int pulseInBlock){
+	switch(blockType){
+		//Whole Note
+		case 1:
+		default:
+			return 0;
+
+		//Half Notes
+		case 2:
+			return (pulseInBlock / 12) * 2;
+
+		//Quater - Quater - Half
+		case 3:
+			if(pulseInBlock >= 12) return 2;
+			return pulseInBlock / 6;
+
+		//Quater - Half - Quarter
+		case 4:
+			if(pulseInBlock >= 18) return 3;
+			else if(pulseInBlock >= 6) return 1;
+			return 0;
+
+		//Half - Quarter - Quarter
+		case 5:
+			if(pulseInBlock < 12) return 0;
+			return pulseInBlock / 6;
+
+		//Tipplets
+		case 6:
+			return pulseInBlock / 8;
+
+		//Quarter Notes
+		case 7:
+			return pulseInBlock / 6;
+	}
+}
+
+bool getGateHigh(int blockType, int pulseInBlock){
+	switch(blockType){
+		//Whole Note
+		case 1:
+		default:
+			return 0 == (pulseInBlock / 12);
+
+		//Half Notes
+		case 2:
+			return 0 == ((pulseInBlock / 6) % 2);
+
+		//Quater - Quater - Half
+		case 3:
+			if(pulseInBlock >= 12) return pulseInBlock < 18;
+			return 0 == ((pulseInBlock / 3) % 2);
+
+		//Quater - Half - Quarter
+		case 4:
+			if(pulseInBlock >= 18) return pulseInBlock < 21;
+			else if(pulseInBlock >= 6) return pulseInBlock < 12;
+			return pulseInBlock < 3;
+
+		//Half - Quarter - Quarter
+		case 5:
+			if(pulseInBlock < 12) return pulseInBlock < 6;
+			return 0 == ((pulseInBlock / 3) % 2);
+
+		//Tipplets
+		case 6:
+			return 0 == ((pulseInBlock / 4) % 2);
+
+		//Quarter Notes
+		case 7:
+			return 0 == ((pulseInBlock / 3) % 2);
+	}
+}
+
+int lastNoteIndex(int blockType){
+	return getNoteIndexForPulse(blockType,23);
+}
+
+int nextNoteIndex(int blockType, int noteIndex){
+	switch(blockType){
+		//Quater - Half - Quarter
+		case 4:
+			if(noteIndex == 1) return 3;
+			break;
+
+		//Half - Quarter - Quarter
+		case 5:
+			if(noteIndex == 0) return 2;
+			break;
+	}
+	return noteIndex++;
+}
+
+void getNoteAndBlock(Module* module, int baseParamIndex, int pulse, int& block, int& noteIndex){
+	if(pulse < 0){
+		block = -1;
+		noteIndex = -1;
+		return;
+	}
+	block = pulse / 24;
+	int pulseInBlock = pulse - block * 24;
+	int blockParamIndex = baseParamIndex + block * NOTE_BLOCK_PARAM_COUNT;
+	int blockType = static_cast<int>(module->params[blockParamIndex].getValue());
+	noteIndex = getNoteIndexForPulse(blockType,pulseInBlock);
+}
+
+void getOuputValues(Module* module, int baseParamIndex, int pulse, float& cv, bool& updateCV, bool& gateHigh)
+{	
+	if(pulse < 0){
+		cv = 0;
+		updateCV = false;
+		gateHigh = false;
+		return;
+	}
+	int block = pulse / 24;
+	int pulseInBlock = pulse - block * 24;
+	int blockParamIndex = baseParamIndex + block * NOTE_BLOCK_PARAM_COUNT;
+	int blockType = static_cast<int>(module->params[blockParamIndex].getValue());
+	int noteIndex = getNoteIndexForPulse(blockType,pulseInBlock);
+
+	cv = module->params[blockParamIndex + 1 + noteIndex * 2].getValue();
+	NoteExtra extra = static_cast<NoteExtra>(module->params[blockParamIndex + 2 + noteIndex * 2].getValue());
+	updateCV = extra == NE_NONE;
+	if(extra == NE_MUTE){
+		gateHigh = false;
+	}else{
+		int blockParamIndex2,blockType2,noteIndex2;
+		//Check for Tie in next note
+		if(lastNoteIndex(blockType) == noteIndex){
+
+			blockParamIndex2 = baseParamIndex + (block+1) * NOTE_BLOCK_PARAM_COUNT;
+			blockType2 = static_cast<int>(module->params[blockParamIndex].getValue());
+			noteIndex2 = 0;
+		}else{
+			blockParamIndex2 = blockParamIndex;
+			blockType2 = blockType;
+			noteIndex2 = nextNoteIndex(blockType2,noteIndex);
+		}
+		bool nextIsTie = NE_TIE == static_cast<NoteExtra>(module->params[blockParamIndex2 + 2 + noteIndex2 * 2].getValue());
+		if(nextIsTie){
+			gateHigh = true;
+		}else{
+			gateHigh = getGateHigh(blockType,pulseInBlock);
+		}
+	}
+
+}
+
 #define DEBUG_ONLY(x)
 
 static NVGcolor getNVGColor(uint32_t color) {
