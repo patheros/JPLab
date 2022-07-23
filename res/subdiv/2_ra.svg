@@ -7,40 +7,40 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   sodipodi:docname="2_ra.svg"
-   inkscape:version="1.0 (4035a4fb49, 2020-05-01)"
-   id="svg7883"
-   version="1.1"
-   viewBox="0 0 21.900696 14.047013"
+   width="21.900696mm"
    height="14.047013mm"
-   width="21.900696mm">
+   viewBox="0 0 21.900696 14.047013"
+   version="1.1"
+   id="svg7883"
+   inkscape:version="1.0 (4035a4fb49, 2020-05-01)"
+   sodipodi:docname="2_ra.svg">
   <defs
      id="defs7877" />
   <sodipodi:namedview
-     inkscape:snap-page="true"
-     inkscape:snap-global="true"
-     inkscape:window-maximized="1"
-     inkscape:window-y="-8"
-     inkscape:window-x="-8"
-     inkscape:window-height="1017"
-     inkscape:window-width="1920"
-     fit-margin-bottom="0"
-     fit-margin-right="0"
-     fit-margin-left="0"
-     fit-margin-top="0"
-     showgrid="false"
-     inkscape:document-rotation="0"
-     inkscape:current-layer="layer1"
-     inkscape:document-units="mm"
-     inkscape:cy="48.316414"
-     inkscape:cx="20.372494"
-     inkscape:zoom="7.9195959"
-     inkscape:pageshadow="2"
-     inkscape:pageopacity="0.0"
-     borderopacity="1.0"
-     bordercolor="#666666"
+     id="base"
      pagecolor="#ffffff"
-     id="base" />
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="7.9195959"
+     inkscape:cx="20.372494"
+     inkscape:cy="48.316414"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     inkscape:document-rotation="0"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:snap-global="true"
+     inkscape:snap-page="true" />
   <metadata
      id="metadata7880">
     <rdf:RDF>
@@ -54,43 +54,42 @@
     </rdf:RDF>
   </metadata>
   <g
-     transform="translate(-0.19994871,-0.15804234)"
-     id="layer1"
+     inkscape:label="Layer 1"
      inkscape:groupmode="layer"
-     inkscape:label="Layer 1">
+     id="layer1"
+     transform="translate(-0.19994871,-0.15804234)">
     <g
-       style="stroke-width:1.001"
-       transform="matrix(0.99899999,0,0,0.99899999,168.96811,-209.99066)"
-       id="g6281-3">
-      <path
-         id="path6277-2"
-         style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:none;fill-opacity:0;fill-rule:evenodd;stroke:#000000;stroke-width:0.663772;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
-         d="M -152.36547,221.23523 V 212.62045 L -149.79182,215.13423"
-         sodipodi:nodetypes="ccc" />
+       transform="matrix(0.99899999,0,0,0.99899999,-10.380102,-581.71852)"
+       id="g9253-4"
+       style="stroke-width:1.001">
       <ellipse
-         style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663773;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
-         id="ellipse6279-8"
-         cx="-154.33411"
-         cy="221.04131"
-         rx="1.9669168"
-         ry="1.2465942" />
+         style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663772;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
+         id="ellipse9249-1"
+         cx="15.493793"
+         cy="587.13232"
+         rx="0.78865874"
+         ry="0.72846556" />
+      <path
+         sodipodi:nodetypes="ccc"
+         id="path9251-6"
+         d="M 16.498388,592.95513 17.518966,586.84758 C 16.731273,587.78942 16.06431,587.99572 15.456257,587.8431"
+         style="color:#000000;font-variation-settings:normal;overflow:visible;opacity:1;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.414414;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000;stop-opacity:1" />
     </g>
     <g
-       style="stroke-width:1.001"
-       id="g9253-4"
-       transform="matrix(0.99899999,0,0,0.99899999,-10.380102,-581.71852)">
+       transform="translate(5.903686,6.9557648e-5)"
+       id="g857">
       <ellipse
-         ry="0.72846556"
-         rx="0.78865874"
-         cy="587.13232"
-         cx="15.493793"
-         id="ellipse9249-1"
-         style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663772;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000" />
+         style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663109;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
+         id="ellipse915"
+         cx="8.8846531"
+         cy="10.829527"
+         rx="1.9649498"
+         ry="1.2453476" />
       <path
-         style="color:#000000;font-variation-settings:normal;overflow:visible;opacity:1;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.414414;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000;stop-opacity:1"
-         d="M 16.498388,592.95513 17.518966,586.84758 C 16.731273,587.78942 16.06431,587.99572 15.456257,587.8431"
-         id="path9251-6"
-         sodipodi:nodetypes="ccc" />
+         sodipodi:nodetypes="ccc"
+         d="M 10.851321,11.023263 V 2.4170974 L 12.501079,5.0464854"
+         style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:none;fill-opacity:0;fill-rule:evenodd;stroke:#000000;stroke-width:0.663108;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
+         id="path919" />
     </g>
   </g>
 </svg>

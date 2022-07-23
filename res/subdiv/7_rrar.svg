@@ -7,38 +7,38 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   width="21.900696mm"
-   height="14.047013mm"
-   viewBox="0 0 21.900696 14.047013"
-   version="1.1"
-   id="svg7883"
+   sodipodi:docname="7_rrar.svg"
    inkscape:version="1.0 (4035a4fb49, 2020-05-01)"
-   sodipodi:docname="7_rrar.svg">
+   id="svg7883"
+   version="1.1"
+   viewBox="0 0 21.900696 14.047013"
+   height="14.047013mm"
+   width="21.900696mm">
   <defs
      id="defs7877" />
   <sodipodi:namedview
-     id="base"
-     pagecolor="#ffffff"
-     bordercolor="#666666"
-     borderopacity="1.0"
-     inkscape:pageopacity="0.0"
-     inkscape:pageshadow="2"
-     inkscape:zoom="3.959798"
-     inkscape:cx="46.41748"
-     inkscape:cy="35.420515"
-     inkscape:document-units="mm"
-     inkscape:current-layer="g868"
-     inkscape:document-rotation="0"
-     showgrid="false"
-     fit-margin-top="0"
-     fit-margin-left="0"
-     fit-margin-right="0"
-     fit-margin-bottom="0"
-     inkscape:window-width="1920"
-     inkscape:window-height="1017"
-     inkscape:window-x="-8"
+     inkscape:window-maximized="1"
      inkscape:window-y="-8"
-     inkscape:window-maximized="1" />
+     inkscape:window-x="-8"
+     inkscape:window-height="1017"
+     inkscape:window-width="1920"
+     fit-margin-bottom="0"
+     fit-margin-right="0"
+     fit-margin-left="0"
+     fit-margin-top="0"
+     showgrid="false"
+     inkscape:document-rotation="0"
+     inkscape:current-layer="g868"
+     inkscape:document-units="mm"
+     inkscape:cy="21.805865"
+     inkscape:cx="36.493018"
+     inkscape:zoom="11.2"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base" />
   <metadata
      id="metadata7880">
     <rdf:RDF>
@@ -47,81 +47,86 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
   <g
-     inkscape:label="Layer 1"
-     inkscape:groupmode="layer"
+     transform="translate(-0.19994871,-0.15804234)"
      id="layer1"
-     transform="translate(-0.19994871,-0.15804234)">
+     inkscape:groupmode="layer"
+     inkscape:label="Layer 1">
     <g
-       style="stroke-width:1.001"
+       transform="matrix(0.99899999,0,0,0.99899999,5.1381616,-618.09815)"
        id="g868"
-       transform="matrix(0.99899999,0,0,0.99899999,5.1381616,-618.09815)">
-      <ellipse
-         style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663772;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
-         id="ellipse860"
-         cx="1.3866385"
-         cy="623.54803"
-         rx="0.78865874"
-         ry="0.72846556" />
-      <path
-         sodipodi:nodetypes="ccc"
-         id="path862"
-         d="M 2.391234,629.37081 3.411812,623.26326 C 2.624119,624.2051 1.957156,624.4114 1.349103,624.25878"
-         style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.414414;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000" />
+       style="stroke-width:1.001">
+      <g
+         transform="translate(-15.533798,36.416046)"
+         id="g9253-4"
+         style="stroke-width:1.001">
+        <ellipse
+           style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663772;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
+           id="ellipse9249-1"
+           cx="15.493793"
+           cy="587.13232"
+           rx="0.78865874"
+           ry="0.72846556" />
+        <path
+           sodipodi:nodetypes="ccc"
+           id="path9251-6"
+           d="M 16.498388,592.95513 17.518966,586.84758 C 16.731273,587.78942 16.06431,587.99572 15.456257,587.8431"
+           style="color:#000000;font-variation-settings:normal;overflow:visible;opacity:1;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.414414;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000;stop-opacity:1" />
+      </g>
     </g>
     <g
-       style="stroke-width:1.001"
+       transform="matrix(0.99899999,0,0,0.99899999,17.129329,-618.09815)"
        id="g889"
-       transform="matrix(0.99899999,0,0,0.99899999,17.129329,-618.09815)">
-      <ellipse
-         style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663772;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
-         id="ellipse881"
-         cx="1.3866385"
-         cy="623.54803"
-         rx="0.78865874"
-         ry="0.72846556" />
-      <path
-         sodipodi:nodetypes="ccc"
-         id="path883"
-         d="M 2.391234,629.37081 3.411812,623.26326 C 2.624119,624.2051 1.957156,624.4114 1.349103,624.25878"
-         style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.414414;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000" />
-      <path
-         style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.414414;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000"
-         d="M 2.9943018,625.97075 C 2.2066088,626.91259 1.5396458,627.11889 0.93159275,626.96627"
-         id="path885"
-         sodipodi:nodetypes="cc" />
+       style="stroke-width:1.001">
       <ellipse
          ry="0.72846556"
          rx="0.78865874"
-         cy="626.14166"
-         cx="0.79200339"
-         id="ellipse887"
+         cy="623.54803"
+         cx="1.3866385"
+         id="ellipse881"
          style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663772;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000" />
-    </g>
-    <g
-       id="g881-1"
-       transform="translate(8.99932)">
-      <ellipse
-         style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663109;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
-         id="ellipse7691-9"
-         cx="4.3767495"
-         cy="10.829527"
-         rx="1.9649498"
-         ry="1.2453476" />
+      <path
+         style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.414414;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000"
+         d="M 2.391234,629.37081 3.411812,623.26326 C 2.624119,624.2051 1.957156,624.4114 1.349103,624.25878"
+         id="path883"
+         sodipodi:nodetypes="ccc" />
       <path
          sodipodi:nodetypes="cc"
-         style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663108;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000"
-         d="M 6.3670745,5.0404425 7.5513859,6.7680946"
-         id="path7693-4" />
+         id="path885"
+         d="M 2.9943018,625.97075 C 2.2066088,626.91259 1.5396458,627.11889 0.93159275,626.96627"
+         style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.414414;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000" />
+      <ellipse
+         style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663772;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000"
+         id="ellipse887"
+         cx="0.79200339"
+         cy="626.14166"
+         rx="0.78865874"
+         ry="0.72846556" />
+    </g>
+    <g
+       transform="translate(8.99932)"
+       id="g881-1">
+      <ellipse
+         ry="1.2453476"
+         rx="1.9649498"
+         cy="10.829527"
+         cx="4.3767495"
+         id="ellipse7691-9"
+         style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663109;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000" />
       <path
-         sodipodi:nodetypes="ccc"
-         d="M 6.343417,11.023263 V 2.4170974 L 7.9931756,5.0464854"
+         id="path7693-4"
+         d="M 6.3670745,5.0404425 7.5513859,6.7680946"
+         style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663108;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000"
+         sodipodi:nodetypes="cc" />
+      <path
+         id="path847-4"
          style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:none;fill-opacity:0;fill-rule:evenodd;stroke:#000000;stroke-width:0.663108;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
-         id="path847-4" />
+         d="M 6.343417,11.023263 V 2.4170974 L 7.9931756,5.0464854"
+         sodipodi:nodetypes="ccc" />
     </g>
   </g>
 </svg>

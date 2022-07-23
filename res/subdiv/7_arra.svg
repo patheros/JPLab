@@ -57,23 +57,6 @@
      inkscape:groupmode="layer"
      inkscape:label="Layer 1">
     <g
-       transform="matrix(0.99899999,0,0,0.99899999,10.250161,-618.09815)"
-       id="g889"
-       style="stroke-width:1.001">
-      <ellipse
-         ry="0.72846556"
-         rx="0.78865874"
-         cy="623.54803"
-         cx="1.3866385"
-         id="ellipse881"
-         style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663772;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000" />
-      <path
-         style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.414414;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000"
-         d="M 2.391234,629.37081 3.411812,623.26326 C 2.624119,624.2051 1.957156,624.4114 1.349103,624.25878"
-         id="path883"
-         sodipodi:nodetypes="ccc" />
-    </g>
-    <g
        transform="translate(-0.04976001)"
        id="g881">
       <ellipse
@@ -114,6 +97,23 @@
          d="M 6.343417,11.023263 V 2.4170974 L 7.9931756,5.0464854"
          style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:none;fill-opacity:0;fill-rule:evenodd;stroke:#000000;stroke-width:0.663108;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
          id="path855" />
+    </g>
+    <g
+       transform="matrix(0.99899999,0,0,0.99899999,9.8869229,-618.09815)"
+       id="g9417-0-0-0"
+       style="stroke-width:1.001">
+      <ellipse
+         ry="0.72846556"
+         rx="0.78865874"
+         cy="623.54803"
+         cx="1.3866385"
+         id="ellipse9261-00-7-7-3"
+         style="color:#000000;overflow:visible;fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.663772;stroke-miterlimit:4;stroke-dasharray:none;stop-color:#000000" />
+      <path
+         style="color:#000000;font-variation-settings:normal;overflow:visible;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.414414;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker:none;stop-color:#000000"
+         d="M 2.391234,629.37081 3.411812,623.26326 C 2.624119,624.2051 1.957156,624.4114 1.349103,624.25878"
+         id="path9263-3-3-0-3"
+         sodipodi:nodetypes="ccc" />
     </g>
   </g>
 </svg>

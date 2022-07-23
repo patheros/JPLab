@@ -55,7 +55,7 @@ struct Sequencer3 : Module, NotePreviewer {
 		configParam(SEQ_LENGTH_PARAM, 1, MAX_SEQ_LENGTH * 4, 8, "Sequence Length");
 
 		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
-			configNoteBlock(this,NOTE_BLOCK_PARAM + ni * NOTE_BLOCK_PARAM_COUNT);
+			configNoteBlock(this,NOTE_BLOCK_PARAM + ni * NOTE_BLOCK_PARAM_COUNT, ni == 0);
 		}
 		initalize();
 	}

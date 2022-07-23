@@ -5,6 +5,17 @@
 
 using namespace rack;
 
+void svgDraw_colorOverride(NVGcontext* vg, NSVGimage* svg);
+
+struct ColoredSvgWidget : widget ::SvgWidget
+{
+	NVGcolor color;
+	void draw(const DrawArgs& args) override{
+		nvgFillColor(args.vg, color);
+		svgDraw_colorOverride(args.vg, svg->handle);
+	}
+};
+
 #define ROOT_OFFSET 7.f/12.f
 #define NoteEntryWidget_MIN (0.f - ROOT_OFFSET)
 #define NoteEntryWidget_MAX (3.f - ROOT_OFFSET - 1.f/12.f)
@@ -253,12 +264,36 @@ struct NoteBlockWidgetParent{
 	virtual void updateDisplay();
 };
 
-struct CustomTrimpot : Trimpot{
+struct CustomTrimpot : app::SvgKnob{
+	ColoredSvgWidget* ring;
+	widget::SvgWidget* bg;
 	NoteBlockWidgetParent * parent = NULL;
+	CustomTrimpot() {
+		minAngle = -0.75 * M_PI;
+		maxAngle = 0.75 * M_PI;
+
+		bg = new widget::SvgWidget;
+		ring = new ColoredSvgWidget;
+		ring->color = nvgRGB(0xff,0x00,0x00);
+		fb->addChildBelow(ring, tw);
+		fb->addChildBelow(bg, tw);
+
+		setSvg(Svg::load(asset::system("res/ComponentLibrary/Trimpot.svg")));
+		bg->setSvg(Svg::load(asset::system("res/ComponentLibrary/Trimpot_bg.svg")));
+
+		ring->setSvg(Svg::load(asset::plugin(pluginInstance,"res/Trimpot_ring.svg")));
+		ring->box.pos.x -= 2.095f;
+		ring->box.pos.y -= 2.095f;
+		//auto ringSize = ring->box.size;
+		// sw->box.size = ringSize;
+		// tw->box.size = ringSize;
+		// fb->box.size = ringSize;
+		// bg->box.size = ringSize;
+	}
 	void onChange(const ChangeEvent& e) override {
 		parent->updateDisplay();
-		Trimpot::onChange(e);
-	}
+		SvgKnob::onChange(e);
+	}	
 };
 
 struct NoteWidget : widget::OpaqueWidget, NoteControler {
@@ -267,7 +302,7 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 	bool displayed = true;
 	bool canTie;
 	CustomTrimpot* knob = NULL;
-	SvgWidget* extra = NULL;
+	ColoredSvgWidget* extra = NULL;
 	std::shared_ptr<window::Svg> mute;
 	std::shared_ptr<window::Svg> tie;
 	NoteWidget() {
@@ -283,8 +318,9 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 		knob->parent = parent;
 		addChild(knob);
 
-		extra = new SvgWidget();
+		extra = new ColoredSvgWidget();
 		extra->box.pos = Vec(0,0);
+		extra->color = nvgRGB(0xff,0x00,0x00);
 		addChild(extra);
 
 		mute = Svg::load(asset::plugin(pluginInstance,"res/mute_off.svg"));
@@ -380,14 +416,33 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 
 #define NOTE_BLOCK_PARAM_COUNT 9
 
-void configNoteBlock(Module * module, int paramIndex);
+void configNoteBlock(Module * module, int paramIndex, bool firstBlock);
 
 struct SubdivisionWidget : app::Switch
 {
+	struct Frame{
+		std::shared_ptr<window::Svg> main;
+		std::shared_ptr<window::Svg> notes [4];
+	};
+
+	Frame makeFrame(std::string root, std::string n1, std::string n2, std::string n3, std::string n4){
+		Frame frame;
+		frame.main = Svg::load(asset::plugin(pluginInstance,"res/subdiv/" + root + ".svg"));
+		frame.notes[0] = Svg::load(asset::plugin(pluginInstance,"res/subdiv/" + n1 + ".svg"));
+		if(n2 == "") n2 = n1;
+		frame.notes[1] = Svg::load(asset::plugin(pluginInstance,"res/subdiv/" + n2 + ".svg"));
+		if(n3 == "") n3 = n2;
+		frame.notes[2] = Svg::load(asset::plugin(pluginInstance,"res/subdiv/" + n3 + ".svg"));
+		if(n4 == "") n4 = n3;
+		frame.notes[3] = Svg::load(asset::plugin(pluginInstance,"res/subdiv/" + n4 + ".svg"));
+		return frame;
+	}
+
 	NoteBlockWidgetParent * parent = NULL;
 	widget::FramebufferWidget* fb;
 	widget::SvgWidget* sw;
-	std::map<int,std::shared_ptr<window::Svg>> frames;
+	ColoredSvgWidget* noteLights [4];
+	std::map<int,Frame> frames;
 	int index;	
 
 	SubdivisionWidget() {
@@ -395,82 +450,143 @@ struct SubdivisionWidget : app::Switch
 		addChild(fb);
 		sw = new widget::SvgWidget;
 		fb->addChild(sw);
+		for(int i = 0; i < 4; i++){
+			noteLights[i] = new ColoredSvgWidget;
+			noteLights[i]->color = nvgRGB(0xff,0x00,0x00);
+			fb->addChild(noteLights[i]);
+		}
 
 		//1 Note
-		addFrame(0x00000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1.svg")));
-		addFrame(0x01000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+		Frame _1 = 		makeFrame("1",		"1_a1",		"",			"",			"");
+		Frame _1_r = 	makeFrame("1_r",	"1_r1",		"",			"",			"");
 
 		//2 Notes
-		addFrame(0x10000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/2.svg")));
-		addFrame(0x11000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/2_ra.svg")));
-		addFrame(0x10100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/2_ar.svg")));
-		addFrame(0x11100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+		Frame _2 = 		makeFrame("2",		"2_a1",		"",			"2_a2",		"");
+		Frame _2_ra = 	makeFrame("2_ra",	"2_r1",		"",			"2_a2f",	"");
+		Frame _2_ar = 	makeFrame("2_ar",	"2_a1f",	"",			"2_r2",		"");
 
 		//3 Notes
-		addFrame(0x20000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3.svg")));
-		addFrame(0x21000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_raa.svg")));
-		addFrame(0x20100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_ara.svg")));
-		addFrame(0x20010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_aar.svg")));
-		addFrame(0x21100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/2_ra.svg")));
-		addFrame(0x21010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_rar.svg")));
-		addFrame(0x20110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_arr.svg")));
-		addFrame(0x21110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+		Frame _3 = 		makeFrame("3",		"3_a1",		"3_a2",		"3_a3",		"");
+		Frame _3_raa = 	makeFrame("3_raa",	"3_r1",		"3_a2",		"3_a3",		"");
+		Frame _3_ara = 	makeFrame("3_ara",	"3_a1f",	"3_r2",		"3_a3f",	"");
+		Frame _3_aar = 	makeFrame("3_aar",	"3_a1",		"3_a2",		"3_r3",		"");
+		Frame _3_rar = 	makeFrame("3_rar",	"3_r1",		"3_a2f",	"3_r3",		"");
+		Frame _3_arr = 	makeFrame("3_arr",	"3_a1f",	"3_r2d",	"",			"");
 
-		addFrame(0x30000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4.svg")));
-		addFrame(0x31000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_raa.svg")));
-		addFrame(0x30100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_ara.svg")));
-		addFrame(0x30010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_aar.svg")));
-		addFrame(0x31100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_rra.svg")));
-		addFrame(0x31010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_rar.svg")));
-		addFrame(0x30110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_arr.svg")));
-		addFrame(0x31110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+		Frame _4 = 		makeFrame("4",		"4_a1",		"4_a2",		"",			"4_a3");
+		Frame _4_raa = 	makeFrame("4_raa",	"3_r1",		"4_a2",		"",			"4_a3");
+		Frame _4_ara = 	makeFrame("4_ara",	"4_a1f",	"4_r2",		"",			"4_a3f");
+		Frame _4_aar = 	makeFrame("4_aar",	"4_a1",		"4_a2",		"",			"4_r3");
+		Frame _4_rra = 	makeFrame("4_rra",	"4_r1d",	"",			"",			"4_a3f");
+		Frame _4_rar = 	makeFrame("4_rar",	"3_r1",		"4_a2f",	"",			"4_r3");
+		Frame _4_arr = 	makeFrame("4_arr",	"4_a1f",	"4_r2",		"",			"4_r3");
 
-		addFrame(0x40000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5.svg")));
-		addFrame(0x41000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5_raa.svg")));
-		addFrame(0x40100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5_ara.svg")));
-		addFrame(0x40010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5_aar.svg")));
-		addFrame(0x41100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/4_rra.svg")));
-		addFrame(0x41010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5_rar.svg")));
-		addFrame(0x40110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/2_ar.svg")));
-		addFrame(0x41110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+		Frame _5 = 		makeFrame("5",		"5_a1",		"",			"5_a2",		"5_a3");
+		Frame _5_raa = 	makeFrame("5_raa",	"5_r1",		"",			"5_a2",		"5_a3");
+		Frame _5_ara = 	makeFrame("5_ara",	"5_a1f",	"",			"5_r2",		"5_a3f");
+		Frame _5_aar = 	makeFrame("5_aar",	"5_a1",		"",			"5_a2",		"5_r3");
+		Frame _5_rar = 	makeFrame("5_rar",	"5_r1",		"",			"5_a2f",	"5_r3");
 
-		addFrame(0x50000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6.svg")));
-		addFrame(0x50000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6.svg")));
-		addFrame(0x51000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_raa.svg")));
-		addFrame(0x50100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_ara.svg")));
-		addFrame(0x50010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_aar.svg")));
-		addFrame(0x51100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_rra.svg")));
-		addFrame(0x51010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_rar.svg")));
-		addFrame(0x50110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/6_arr.svg")));
-		addFrame(0x51110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/1_r.svg")));
+		Frame _6 = 		makeFrame("6",		"6_a1",		"6_a2",		"6_a3",		"");
+		Frame _6_raa = 	makeFrame("6_raa",	"6_r1",		"6_a2",		"6_a3",		"");
+		Frame _6_ara = 	makeFrame("6_ara",	"6_a1f",	"6_r2",		"6_a3f",	"");
+		Frame _6_aar = 	makeFrame("6_aar",	"6_a1",		"6_a2",		"6_r3",		"");
+		Frame _6_rra = 	makeFrame("6_rra",	"6_r1",		"6_r2",		"6_a3f",	"");
+		Frame _6_rar = 	makeFrame("6_rar",	"6_r1",		"6_a2f",	"6_r3",		"");
+		Frame _6_arr = 	makeFrame("6_arr",	"6_a1f",	"6_r2",		"6_r3",		"");
 
 		//4 Notes
-		addFrame(0x60000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7.svg")));
+		Frame _7 = 		makeFrame("7",		"7_a1",		"7_a2",		"7_a3",		"7_a4");
 
-		addFrame(0x61000, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_raaa.svg")));
-		addFrame(0x60100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_araa.svg")));
-		addFrame(0x60010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_aara.svg")));
-		addFrame(0x60001, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_aaar.svg")));
+		Frame _7_raaa = makeFrame("7_raaa",	"7_r1",		"7_a2",		"7_a3",		"7_a4");
+		Frame _7_araa = makeFrame("7_araa",	"7_a1f",	"7_r2",		"7_a3",		"7_a4");
+		Frame _7_aara = makeFrame("7_aara",	"7_a1",		"7_a2",		"7_r3b",	"7_a4f");
+		Frame _7_aaar = makeFrame("7_aaar",	"7_a1",		"7_a2",		"7_a3",		"7_r4");
 
-		addFrame(0x60011, Svg::load(asset::plugin(pluginInstance,"res/subdiv/3_aar.svg")));
-		addFrame(0x60110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_arra.svg")));
-		addFrame(0x61100, Svg::load(asset::plugin(pluginInstance,"res/subdiv/5_raa.svg")));
+		Frame _7_arra = makeFrame("7_arra",	"7_a1f",	"6_r2",		"",			"7_a4f");
 
-		addFrame(0x60101, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_arar.svg")));
-		addFrame(0x61001, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_raar.svg")));
-		addFrame(0x61010, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_rara.svg")));
+		Frame _7_arar = makeFrame("7_arar",	"7_a1f",	"7_r2",		"7_a3f",	"7_r4");
+		Frame _7_raar = makeFrame("7_raar",	"7_r1",		"7_a2",		"7_a3",		"7_r4");
+		Frame _7_rara = makeFrame("7_rara",	"7_r1",		"7_a2f",	"7_r3",		"7_a4f");
 
-		addFrame(0x60111, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_arrr.svg")));
-		addFrame(0x61011, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_rarr.svg")));
-		addFrame(0x61101, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_rrar.svg")));
-		addFrame(0x61110, Svg::load(asset::plugin(pluginInstance,"res/subdiv/7_rrra.svg")));
+		Frame _7_rarr = makeFrame("7_rarr",	"7_r1",		"7_a2f",	"2_r2",		"");
+		Frame _7_rrar = makeFrame("7_rrar",	"2_r1",		"",			"7_a3f",	"7_r4");
+
+		//1 Note
+		addFrame(0x00000, _1);
+		addFrame(0x01000, _1_r);
+
+		//2 Notes
+		addFrame(0x10000, _2);
+		addFrame(0x11000, _2_ra);
+		addFrame(0x10100, _2_ar);
+		addFrame(0x11100, _1_r);
+
+		//3 Notes
+		addFrame(0x20000, _3);
+		addFrame(0x21000, _3_raa);
+		addFrame(0x20100, _3_ara);
+		addFrame(0x20010, _3_aar);
+		addFrame(0x21100, _2_ra);
+		addFrame(0x21010, _3_rar);
+		addFrame(0x20110, _3_arr);
+		addFrame(0x21110, _1_r);
+
+		addFrame(0x30000, _4);
+		addFrame(0x31000, _4_raa);
+		addFrame(0x30100, _4_ara);
+		addFrame(0x30010, _4_aar);
+		addFrame(0x31100, _4_rra);
+		addFrame(0x31010, _4_rar);
+		addFrame(0x30110, _3_arr);
+		addFrame(0x31110, _1_r);
+
+		addFrame(0x40000, _5);
+		addFrame(0x41000, _5_raa);
+		addFrame(0x40100, _5_ara);
+		addFrame(0x40010, _5_aar);
+		addFrame(0x41100, _4_rra);
+		addFrame(0x41010, _5_rar);
+		addFrame(0x40110, _2_ar);
+		addFrame(0x41110, _1_r);
+
+		addFrame(0x50000, _6);
+		addFrame(0x50000, _6);
+		addFrame(0x51000, _6_raa);
+		addFrame(0x50100, _6_ara);
+		addFrame(0x50010, _6_aar);
+		addFrame(0x51100, _6_rra);
+		addFrame(0x51010, _6_rar);
+		addFrame(0x50110, _6_arr);
+		addFrame(0x51110, _1_r);
+
+		//4 Notes
+		addFrame(0x60000, _7);
+
+		addFrame(0x61000, _7_raaa);
+		addFrame(0x60100, _7_araa);
+		addFrame(0x60010, _7_aara);
+		addFrame(0x60001, _7_aaar);
+
+		addFrame(0x60011, _3_aar);
+		addFrame(0x60110, _7_arra);
+		addFrame(0x61100, _5_raa);
+
+		addFrame(0x60101, _7_arar);
+		addFrame(0x61001, _7_raar);
+		addFrame(0x61010, _7_rara);
+
+		addFrame(0x60111, _3_arr);
+		addFrame(0x61011, _7_rarr);
+		addFrame(0x61101, _7_rrar);
+		addFrame(0x61110, _4_rra);
 	}
 
-	void addFrame(int key, std::shared_ptr<window::Svg> svg) {
-		frames[key] = svg;
+	void addFrame(int key, Frame frame) {
+		frames[key] = frame;
 		// If this is our first frame, automatically set SVG and size
 		if (!sw->svg) {
-			sw->setSvg(svg);
+			sw->setSvg(frame.main);
 			box.size = sw->box.size;
 			fb->box.size = sw->box.size;
 		}
@@ -524,7 +640,11 @@ struct SubdivisionWidget : app::Switch
 					break;
 			}
 
-			sw->setSvg(frames[key]);
+			Frame frame = frames[key];
+			sw->setSvg(frame.main);
+			for(int i = 0; i < 4; i++){
+				noteLights[i]->setSvg(frame.notes[i]);
+			}
 			fb->setDirty();
 		}
 	}
@@ -559,7 +679,7 @@ struct NoteBlockWidget : widget::Widget, NoteBlockWidgetParent{
 			noteWidget[i] = createWidget<NoteWidget>(POS[i]);
 			noteWidget[i]->init(this, module, paramIndex + 1 + i * 2);
 			noteWidget[i]->panelSetter = panelSetter;
-			noteWidget[i]->canTie = i == 0;
+			noteWidget[i]->canTie = i == 0 && index != 0;
 			this->addChild(noteWidget[i]);
 		}
 	}

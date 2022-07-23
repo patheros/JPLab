@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   inkscape:version="1.0 (4035a4fb49, 2020-05-01)"
+   sodipodi:docname="Trimpot_bg1.svg"
+   xml:space="preserve"
+   enable-background="new 0 0 17.85552 17.85938"
+   viewBox="0 0 17.85552 17.85938"
+   height="17.85938px"
+   width="17.85552px"
+   y="0px"
+   x="0px"
+   id="svg111794"
+   version="1.0"><metadata
+   id="metadata27"><rdf:RDF><cc:Work
+       rdf:about=""><dc:format>image/svg+xml</dc:format><dc:type
+         rdf:resource="http://purl.org/dc/dcmitype/StillImage" /><dc:title></dc:title></cc:Work></rdf:RDF></metadata><defs
+   id="defs25" /><sodipodi:namedview
+   inkscape:current-layer="svg111794"
+   inkscape:window-maximized="1"
+   inkscape:window-y="-8"
+   inkscape:window-x="-8"
+   inkscape:cy="9.9532703"
+   inkscape:cx="24.404645"
+   inkscape:zoom="17.18337"
+   showgrid="false"
+   id="namedview23"
+   inkscape:window-height="1017"
+   inkscape:window-width="1920"
+   inkscape:pageshadow="2"
+   inkscape:pageopacity="0"
+   guidetolerance="10"
+   gridtolerance="10"
+   objecttolerance="10"
+   borderopacity="1"
+   bordercolor="#666666"
+   pagecolor="#ffffff" />
+<circle
+   id="circle2"
+   r="8.92779"
+   cy="8.92779"
+   cx="8.92779"
+   fill="#0A0A0A" />
+<linearGradient
+   gradientTransform="matrix(0 1 -1 0 -3818.92505 2318.46484)"
+   y2="-3827.85278"
+   x2="-2301.4397"
+   y1="-3827.85278"
+   x1="-2317.63428"
+   gradientUnits="userSpaceOnUse"
+   id="SVGID_1_">
+	<stop
+   id="stop4"
+   style="stop-color:#FFFBFD"
+   offset="0" />
+	<stop
+   id="stop6"
+   style="stop-color:#000000"
+   offset="1" />
+</linearGradient>
+
+<linearGradient
+   gradientTransform="matrix(3.688038e-08 1 1 -3.688038e-08 -5056.9082 -182.98755)"
+   y2="5065.83594"
+   x2="200.01283"
+   y1="5065.83594"
+   x1="183.81821"
+   gradientUnits="userSpaceOnUse"
+   id="SVGID_2_">
+	<stop
+   id="stop11"
+   style="stop-color:#FFFBFD"
+   offset="0" />
+	<stop
+   id="stop13"
+   style="stop-color:#2E2E2E"
+   offset="1" />
+</linearGradient>
+
+
+
+</svg>
