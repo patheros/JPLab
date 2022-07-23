@@ -19,10 +19,23 @@ struct ColoredSvgWidget : widget ::SvgWidget
 #define ROOT_OFFSET 7.f/12.f
 #define NoteEntryWidget_MIN (0.f - ROOT_OFFSET)
 #define NoteEntryWidget_MAX (3.f - ROOT_OFFSET - 1.f/12.f)
+#define NOTE_BLOCK_PARAM_COUNT 9
+
 static const int NoteEntryWidget_OFF = -19;
 
 static const NVGcolor COLOR_ACTIVE_NOTE = nvgRGB(0xff,0x66,0x00);
 static const NVGcolor COLOR_TRANSPARENT = nvgRGBA(0x00,0x00,0x00,0x00);
+static const NVGcolor COLOR_LAST_NOTE = nvgRGB(0x00,0xff,0x15);
+
+void configNoteBlock(Module * module, int paramIndex, bool firstBlock);
+
+int getNoteIndexForPulse(int blockType, int pulseInBlock);
+
+void getNoteAndBlock(Module* module, int baseParamIndex, int pulse, int & block, int & noteIndex);
+
+void getOuputValues(Module* module, int baseParamIndex, int pulse, float& cv, bool& updateCV, bool& gateHigh);
+
+void getNextNote(Module* module, int baseParamIndex, int& block, int& noteIndex);
 
 enum NoteExtra{
 	NE_NONE,
@@ -223,6 +236,10 @@ struct NoteEntryWidgetPanel : NoteEntryWidget{
 	float value;
 	NoteExtra extra;
 	NotePreviewer * previewer;
+	Module* module;
+	int baseParamIndex;
+	int lastBlockIndex = -1;
+	int lastNoteIndex = -1;
 	NoteEntryWidgetPanel(){
 		inMenu = false;		
 		value = NoteEntryWidget_OFF;
@@ -238,6 +255,18 @@ struct NoteEntryWidgetPanel : NoteEntryWidget{
 		value = newVal;
 		if(previewer){
 			previewer->setPreviewNote(newVal);
+		}
+		if(lastBlockIndex != -1){
+			if(newVal == NoteEntryWidget_OFF){
+				lastBlockIndex = -1;
+				lastNoteIndex = -1;
+			}else{
+				if(module){
+					getNextNote(module,baseParamIndex,lastBlockIndex,lastNoteIndex);
+					module->params[baseParamIndex + lastBlockIndex * NOTE_BLOCK_PARAM_COUNT + 1 + lastNoteIndex * 2].setValue(value);
+					module->params[baseParamIndex + lastBlockIndex * NOTE_BLOCK_PARAM_COUNT + 2 + lastNoteIndex * 2].setValue(extra);
+				}
+			}
 		}
 	}
 	NoteExtra getExtra() override{
@@ -312,10 +341,14 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 	ColoredSvgWidget* extra = NULL;
 	std::shared_ptr<window::Svg> mute;
 	std::shared_ptr<window::Svg> tie;
+	int noteIndex;
+	int blockIndex;
 	NoteWidget() {
 	}
-	void init(NoteBlockWidgetParent* parent, Module* module, int paramId){
+	void init(NoteBlockWidgetParent* parent, Module* module, int paramId, int blockIndex, int noteIndex){
 		this->parent = parent;
+		this->blockIndex = blockIndex;
+		this->noteIndex = noteIndex;
 
 		knob = new CustomTrimpot();
 		knob->box.pos = Vec(0,0);
@@ -349,6 +382,8 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 					if(panelSetter->value != NoteEntryWidget_OFF){
 						this->setValue(panelSetter->value);
 						panelSetter->setValue(NoteEntryWidget_OFF);
+						panelSetter->lastBlockIndex = this->blockIndex;
+						panelSetter->lastNoteIndex = this->noteIndex;
 					}
 					if(this->setExtra(panelSetter->extra)){
 						panelSetter->setExtra(NE_NONE);
@@ -425,16 +460,6 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 		}
 	}
 };
-
-#define NOTE_BLOCK_PARAM_COUNT 9
-
-void configNoteBlock(Module * module, int paramIndex, bool firstBlock);
-
-int getNoteIndexForPulse(int blockType, int pulseInBlock);
-
-void getNoteAndBlock(Module* module, int baseParamIndex, int pulse, int & block, int & noteIndex);
-
-void getOuputValues(Module* module, int baseParamIndex, int pulse, float& cv, bool& updateCV, bool& gateHigh);
 
 struct SubdivisionWidget : app::Switch
 {
@@ -600,11 +625,8 @@ struct SubdivisionWidget : app::Switch
 		addFrame(0x71110, _4_rra);
 	}
 
-	void setColors(NVGcolor color1, NVGcolor color2, NVGcolor color3, NVGcolor color4){
-		noteLights[0]->color = color1;
-		noteLights[1]->color = color2;
-		noteLights[2]->color = color3;
-		noteLights[3]->color = color4;
+	void setColor(int i, NVGcolor color){
+		noteLights[i]->color = color;
 		fb->dirty = true;
 	}
 
@@ -703,7 +725,7 @@ struct NoteBlockWidget : widget::Widget, NoteBlockWidgetParent{
 		
 		for(int i = 0; i < 4; i++){
 			noteWidget[i] = createWidget<NoteWidget>(POS[i]);
-			noteWidget[i]->init(this, module, paramIndex + 1 + i * 2);
+			noteWidget[i]->init(this, module, paramIndex + 1 + i * 2, index, i);
 			noteWidget[i]->panelSetter = panelSetter;
 			noteWidget[i]->canTie = i == 0 && index != 0;
 			this->addChild(noteWidget[i]);
@@ -723,12 +745,9 @@ struct NoteBlockWidget : widget::Widget, NoteBlockWidgetParent{
 		Widget::step();
 	}
 
-	void setColors(NVGcolor color1, NVGcolor color2, NVGcolor color3, NVGcolor color4){
-		noteWidget[0]->setColor(color1);
-		noteWidget[1]->setColor(color2);
-		noteWidget[2]->setColor(color3);
-		noteWidget[3]->setColor(color4);
-		subdivWidget->setColors(color1,color2,color3,color4);
+	void setColor(int noteIndex, NVGcolor color){
+		noteWidget[noteIndex]->setColor(color);
+		subdivWidget->setColor(noteIndex,color);
 	}
 
 	void updateDisplay() override{

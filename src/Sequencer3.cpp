@@ -201,6 +201,8 @@ struct Sequencer3Widget : ModuleWidget {
 			noteEntry = createWidget<NoteEntryWidgetPanel>(Vec(1.25f * dx, yStart + dy * 5.2f));
 			noteEntry->init();
 			noteEntry->previewer = module;
+			noteEntry->module = module;
+			noteEntry->baseParamIndex = Sequencer3::NOTE_BLOCK_PARAM;
 			addChild(noteEntry);
 		}
 
@@ -227,7 +229,7 @@ struct Sequencer3Widget : ModuleWidget {
 					int i = (row * COL_COUNT + col);
 					int i2 = i * NOTE_BLOCK_PARAM_COUNT;
 					NoteBlockWidget* noteBlock = createWidget<NoteBlockWidget>(Vec(0.2 * dx + dx2 * col, dy * 0.5 + dy2 * row));
-					noteBlock->init(module, noteEntry, i2, Sequencer3::NOTE_BLOCK_PARAM + i2);
+					noteBlock->init(module, noteEntry, i, Sequencer3::NOTE_BLOCK_PARAM + i2);
 					addChild(noteBlock);		
 					noteBlocks[i] = noteBlock;
 				}
@@ -244,6 +246,8 @@ struct Sequencer3Widget : ModuleWidget {
 	}
 
 	int prevPulse;
+	int prevLastBlock;
+	int prevLastNote;
 
 	void step() override {
 		ModuleWidget::step();
@@ -252,25 +256,43 @@ struct Sequencer3Widget : ModuleWidget {
 		if(module == NULL) return;
 
 		int pulse = module->currentPulse;
+		int lastBlockIndex = this->noteEntry->lastBlockIndex;
+		int lastNoteIndex = this->noteEntry->lastNoteIndex;
+
+		bool dirty = false;;
 
 		if(prevPulse != pulse){
 			prevPulse = pulse;
+			dirty = true;
+		}
+
+		if(prevLastBlock != lastBlockIndex){
+			prevLastBlock = lastBlockIndex;
+			dirty = true;
+		}
+
+		if(prevLastNote != lastNoteIndex){
+			prevLastNote = lastNoteIndex;
+			dirty = true;
+		}
+
+		if(dirty){
 			int block, noteIndex;
 			getNoteAndBlock(module,Sequencer3::NOTE_BLOCK_PARAM,pulse,block,noteIndex);
 
-
 			//DEBUG("pulse:%i block:%i blockType:%i pulseInBlock:%i noteIndexInBlock:%i ",pulse,block,blockType,pulseInBlock,noteIndexInBlock);
 			
+			//DEBUG("lastBlockIndex:%i lastNoteIndex:%i",lastBlockIndex,lastNoteIndex);
+
 			for(int bi = 0; bi < MAX_SEQ_LENGTH; bi ++){
-				if(bi == block){
-					switch(noteIndex){
-						case 0:	noteBlocks[bi]->setColors(COLOR_ACTIVE_NOTE,COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_TRANSPARENT); break;
-						case 1:	noteBlocks[bi]->setColors(COLOR_TRANSPARENT,COLOR_ACTIVE_NOTE,COLOR_TRANSPARENT,COLOR_TRANSPARENT); break;
-						case 2:	noteBlocks[bi]->setColors(COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_ACTIVE_NOTE,COLOR_TRANSPARENT); break;
-						case 3:	noteBlocks[bi]->setColors(COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_ACTIVE_NOTE); break;
+				for(int ni = 0; ni < 4; ni++){
+					NVGcolor color = COLOR_TRANSPARENT;
+					if(bi == block && ni == noteIndex){
+						color = COLOR_ACTIVE_NOTE;
+					}else if(bi == lastBlockIndex && ni == lastNoteIndex){
+						color = COLOR_LAST_NOTE;
 					}
-				}else{
-					noteBlocks[bi]->setColors(COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_TRANSPARENT,COLOR_TRANSPARENT);	
+					noteBlocks[bi]->setColor(ni,color);
 				}
 				noteBlocks[bi]->updateDisplay();
 			}

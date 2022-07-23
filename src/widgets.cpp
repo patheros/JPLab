@@ -94,6 +94,10 @@ int lastNoteIndex(int blockType){
 
 int nextNoteIndex(int blockType, int noteIndex){
 	switch(blockType){
+		//Half Notes
+		case 2:
+			return noteIndex + 2;
+
 		//Quater - Half - Quarter
 		case 4:
 			if(noteIndex == 1) return 3;
@@ -104,7 +108,7 @@ int nextNoteIndex(int blockType, int noteIndex){
 			if(noteIndex == 0) return 2;
 			break;
 	}
-	return noteIndex++;
+	return noteIndex + 1;
 }
 
 void getNoteAndBlock(Module* module, int baseParamIndex, int pulse, int& block, int& noteIndex){
@@ -140,18 +144,11 @@ void getOuputValues(Module* module, int baseParamIndex, int pulse, float& cv, bo
 	if(extra == NE_MUTE){
 		gateHigh = false;
 	}else{
-		int blockParamIndex2,blockType2,noteIndex2;
 		//Check for Tie in next note
-		if(lastNoteIndex(blockType) == noteIndex){
-
-			blockParamIndex2 = baseParamIndex + (block+1) * NOTE_BLOCK_PARAM_COUNT;
-			blockType2 = static_cast<int>(module->params[blockParamIndex].getValue());
-			noteIndex2 = 0;
-		}else{
-			blockParamIndex2 = blockParamIndex;
-			blockType2 = blockType;
-			noteIndex2 = nextNoteIndex(blockType2,noteIndex);
-		}
+		int block2 = block;
+		int noteIndex2 = noteIndex;
+		getNextNote(module,baseParamIndex,block2,noteIndex2);
+		int blockParamIndex2 = baseParamIndex + block2 * NOTE_BLOCK_PARAM_COUNT;
 		bool nextIsTie = NE_TIE == static_cast<NoteExtra>(module->params[blockParamIndex2 + 2 + noteIndex2 * 2].getValue());
 		if(nextIsTie){
 			gateHigh = true;
@@ -160,6 +157,19 @@ void getOuputValues(Module* module, int baseParamIndex, int pulse, float& cv, bo
 		}
 	}
 
+}
+
+void getNextNote(Module* module, int baseParamIndex, int& block, int& noteIndex){
+	int blockParamIndex = baseParamIndex + block * NOTE_BLOCK_PARAM_COUNT;
+	int blockType = static_cast<int>(module->params[blockParamIndex].getValue());
+	if(lastNoteIndex(blockType) == noteIndex){
+		block++;
+		noteIndex=0;
+	}else{
+		blockParamIndex = baseParamIndex + block * NOTE_BLOCK_PARAM_COUNT;
+		blockType = static_cast<int>(module->params[blockParamIndex].getValue());
+		noteIndex = nextNoteIndex(blockType,noteIndex);
+	}
 }
 
 #define DEBUG_ONLY(x)
