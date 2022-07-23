@@ -15,6 +15,7 @@ struct Sequencer3 : Module, NotePreviewer {
 	enum ParamId {
 		ENUMS(NOTE_BLOCK_PARAM, MAX_SEQ_LENGTH * NOTE_BLOCK_PARAM_COUNT),
 		SEQ_LENGTH_PARAM,
+		EVOLUTION_ON_PARAM,
 		PARAMS_LEN
 	};
 	enum InputId {
@@ -40,12 +41,18 @@ struct Sequencer3 : Module, NotePreviewer {
 	int pulseCounter;
 	bool clockHigh;
 
+	int evolutionMapping [MAX_SEQ_LENGTH];
+	bool evolveUpOrDownBias;
+
 	//Non Persistant State
 	
 	bool resetHigh;
 	float previewNote;	
 
 	bool hasHadFirstClockHigh;	
+
+	int currentEvolvedPulse;
+	bool evolveOn;
 
 	Sequencer3() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -54,6 +61,9 @@ struct Sequencer3 : Module, NotePreviewer {
 		configInput(RESET_INPUT,"Reset");
 		configOutput(GATE_OUTPUT,"Gate");
 		configOutput(CV_OUTPUT,"CV");
+
+		auto evoOnQ = configSwitch(EVOLUTION_ON_PARAM, 0, 1, 0, "Evolution", std::vector<std::string>{"off","ON"});		
+		evoOnQ->randomizeEnabled = false;
 
 		auto lengthQ = configParam(SEQ_LENGTH_PARAM, 1, MAX_SEQ_LENGTH, 8, "Sequence Length");
 		lengthQ->randomizeEnabled = false;
@@ -82,6 +92,12 @@ struct Sequencer3 : Module, NotePreviewer {
 
 		currentPulse = -1;
 		pulseCounter = 0;
+
+		currentEvolvedPulse = -1;
+		evolveUpOrDownBias = true;
+		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
+			evolutionMapping[ni] = -1;
+		}
 	}
 
 	json_t *dataToJson() override{
@@ -132,21 +148,53 @@ struct Sequencer3 : Module, NotePreviewer {
 			pulseCounter = 0;
 		}
 
+
 		//Clock Logic
 		if(pulseEvent){
 			//Incremnt Pulse
 			currentPulse++;
 
+			bool _evolveOn = params[EVOLUTION_ON_PARAM].getValue() == 1;
+
+			if(evolveOn != _evolveOn){
+				evolveOn = _evolveOn;
+				if(evolveOn){
+					//Clear Evolution when the switch is turned on so we get a fresh run
+					for(int bi = 0; bi < MAX_SEQ_LENGTH; bi++){
+						evolutionMapping[bi] = -1;
+					}
+				}
+			}
+
 			//Wrap Pulse
 			int maxPulse = params[SEQ_LENGTH_PARAM].getValue() * 24; //24 Pulses per Sixtenth Note			
 			if(currentPulse >= maxPulse){
 				currentPulse = 0;
+				if(evolveOn){
+					doEvolve();
+				}
 			}
 
 			float cv;
 			bool updateCV;
 			bool gateHigh;
-			getOuputValues(this,NOTE_BLOCK_PARAM,currentPulse,cv,updateCV,gateHigh);
+
+			int pulse = currentPulse;
+
+			if(evolveOn){
+				int block = pulse/24;
+				int pulseInBlock = pulse - block * 24;
+				int evolvedBlock = evolutionMapping[block];
+				if(evolvedBlock != -1){
+					block = evolvedBlock;
+					pulse = pulseInBlock + block * 24;
+				}
+				currentEvolvedPulse = currentPulse == pulse ? - 1 : pulse;
+			}else{
+				currentEvolvedPulse = -1;
+			}
+
+			getOuputValues(this,NOTE_BLOCK_PARAM,pulse,cv,updateCV,gateHigh);
 			if(updateCV){
 				outputs[CV_OUTPUT].setVoltage(cv);
 			}
@@ -158,6 +206,98 @@ struct Sequencer3 : Module, NotePreviewer {
 			//Preview Note
 			outputs[CV_OUTPUT].setVoltage(previewNote);
 			outputs[GATE_OUTPUT].setVoltage(clockHigh ? 10 : 0);
+		}
+	}
+
+	void doEvolve(){
+		using rack::random::uniform;
+
+		//Base Evolve Chance
+		if(uniform() < 0.5) return;
+
+		int maxBlock = params[SEQ_LENGTH_PARAM].getValue();
+		int evolvedBlocks = 0;
+		for(int bi = 0; bi < maxBlock; bi++){
+			if(evolutionMapping[bi] != -1) evolvedBlocks++;
+		}
+		float percentEvolved = evolvedBlocks / (float) maxBlock;
+
+		float evolveUpChance = 1 - percentEvolved;
+
+		DEBUG("percentEvolved:%f evolveUpChance:%f",percentEvolved,evolveUpChance);
+
+		if(evolveUpOrDownBias){
+			//DnD Advantage
+			evolveUpChance = 1-evolveUpChance;
+			evolveUpChance = evolveUpChance * evolveUpChance;
+			evolveUpChance = 1-evolveUpChance;
+			DEBUG("Up/Advantage evolveUpChance:%f",evolveUpChance);
+		}else{
+			//DnD Disadvantage
+			evolveUpChance = evolveUpChance * evolveUpChance;
+			DEBUG("Down/Disadvantage evolveUpChance:%f",evolveUpChance);
+		}
+
+		if(uniform() < evolveUpChance){
+			addEvolution();
+		}else{
+			removeEvolution();
+		}
+
+		if(percentEvolved > 0.8 && evolveUpOrDownBias){
+			evolveUpOrDownBias = false;
+		}else if(percentEvolved <= 0 && !evolveUpOrDownBias){
+			evolveUpOrDownBias = true;
+		}
+	}
+
+	void addEvolution(){
+		using rack::random::uniform;
+
+		std::vector<int> indexes;
+		int maxBlock = params[SEQ_LENGTH_PARAM].getValue();
+		for(int bi = 0; bi < maxBlock; bi++){
+			if(evolutionMapping[bi] == -1) indexes.push_back(bi);
+		}
+		if(indexes.size() > 0){
+			int inBlock = indexes[rndInt(indexes.size())];
+			int outBlock = rndInt(MAX_SEQ_LENGTH);
+			evolutionMapping[inBlock] = outBlock;
+
+			//Chance to map a run of sequential blocks
+			while(uniform() < 0.5){
+				outBlock++;
+				if(outBlock >= MAX_SEQ_LENGTH) return;
+
+				inBlock++;
+				if(inBlock >= MAX_SEQ_LENGTH) return;
+				
+				//Note this allows mapping over existing evolutions
+
+				evolutionMapping[inBlock] = outBlock;
+			}
+		}
+	}
+
+	void removeEvolution(){
+		using rack::random::uniform;
+
+		std::vector<int> indexes;
+		int maxBlock = params[SEQ_LENGTH_PARAM].getValue();
+		for(int bi = 0; bi < maxBlock; bi++){
+			if(evolutionMapping[bi] != -1) indexes.push_back(bi);
+		}
+		if(indexes.size() > 0){
+			int inBlock = indexes[rndInt(indexes.size())];
+			evolutionMapping[inBlock] = -1;
+
+			//Chance to clear a run of sequential blocks
+			while(uniform() < 0.5){
+				inBlock++;
+				if(inBlock >= MAX_SEQ_LENGTH) return;
+
+				evolutionMapping[inBlock] = -1;
+			}
 		}
 	}
 
@@ -230,7 +370,7 @@ struct Sequencer3 : Module, NotePreviewer {
 	  			//Chance for octave shift
 	  			if(uniform() < octaveShiftOdds){
 	  				if(uniform() < highVsLowOctaveOdds){
-	  					if(cv <= NoteEntryWidget_MAX + 1){
+	  					if(cv <= NoteEntryWidget_MAX - 1){
 	  						cv += 1;
 	  						DEBUG("+1 octave cv: %f",cv);
 	  					}
@@ -329,6 +469,11 @@ struct Sequencer3Widget : ModuleWidget {
 			addOutput(createOutputCentered<PJ3410Port>(Vec(x,y), module, Sequencer3::CV_OUTPUT));
 			x += dx;
 			addParam(createParamCentered<RotarySwitch<RoundSmallBlackKnob>>(Vec(x,y), module, Sequencer3::SEQ_LENGTH_PARAM));
+
+			x += dx;
+
+			x += dx;
+			addParam(createParamCentered<CKSS>(Vec(x,y), module, Sequencer3::EVOLUTION_ON_PARAM));
 		}
 
 		{
@@ -390,8 +535,10 @@ struct Sequencer3Widget : ModuleWidget {
 		if(module == NULL) return;
 
 		int pulse = module->currentPulse;
+		int pulseEvolved = module->currentEvolvedPulse;
 		int lastBlockIndex = this->noteEntry->lastBlockIndex;
 		int lastNoteIndex = this->noteEntry->lastNoteIndex;
+		
 
 		bool dirty = false;;
 
@@ -414,6 +561,9 @@ struct Sequencer3Widget : ModuleWidget {
 			int block, noteIndex;
 			getNoteAndBlock(module,Sequencer3::NOTE_BLOCK_PARAM,pulse,block,noteIndex);
 
+			int blockEvolved, noteEvolved;
+			getNoteAndBlock(module,Sequencer3::NOTE_BLOCK_PARAM,pulseEvolved,blockEvolved,noteEvolved);
+
 			//DEBUG("pulse:%i block:%i blockType:%i pulseInBlock:%i noteIndexInBlock:%i ",pulse,block,blockType,pulseInBlock,noteIndexInBlock);
 			
 			//DEBUG("lastBlockIndex:%i lastNoteIndex:%i",lastBlockIndex,lastNoteIndex);
@@ -422,7 +572,13 @@ struct Sequencer3Widget : ModuleWidget {
 				for(int ni = 0; ni < 4; ni++){
 					NVGcolor color = COLOR_TRANSPARENT;
 					if(bi == block && ni == noteIndex){
-						color = COLOR_ACTIVE_NOTE;
+						if(pulseEvolved == -1){
+							color = COLOR_ACTIVE_NOTE;
+						}else{
+							color = COLOR_ACTIVE_GHOST_NOTE;
+						}
+					}else if(bi == blockEvolved && ni == noteEvolved){
+						color = COLOR_EVOLVED;
 					}else if(bi == lastBlockIndex && ni == lastNoteIndex){
 						color = COLOR_LAST_NOTE;
 					}

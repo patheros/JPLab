@@ -7,12 +7,15 @@ using namespace rack;
 
 void svgDraw_colorOverride(NVGcontext* vg, NSVGimage* svg);
 
-struct ColoredSvgWidget : widget ::SvgWidget
+struct ColoredSvgWidget : widget::SvgWidget
 {
+	int layer = 0;
 	NVGcolor color;
-	void draw(const DrawArgs& args) override{
-		nvgFillColor(args.vg, color);
-		svgDraw_colorOverride(args.vg, svg->handle);
+	void drawLayer(const DrawArgs& args, int lay) override{
+		if(lay == layer){
+			nvgFillColor(args.vg, color);
+			svgDraw_colorOverride(args.vg, svg->handle);
+		}
 	}
 };
 
@@ -23,9 +26,11 @@ struct ColoredSvgWidget : widget ::SvgWidget
 
 static const int NoteEntryWidget_OFF = -19;
 
-static const NVGcolor COLOR_ACTIVE_NOTE = nvgRGB(0xff,0x80,0x2b);
+static const NVGcolor COLOR_ACTIVE_NOTE = nvgRGB(0xfa,0x94,0x50);
+static const NVGcolor COLOR_ACTIVE_GHOST_NOTE = nvgRGB(0xe4,0xc4,0xaf);
 static const NVGcolor COLOR_TRANSPARENT = nvgRGBA(0x00,0x00,0x00,0x00);
 static const NVGcolor COLOR_LAST_NOTE = nvgRGB(0x2b,0xff,0xea);
+static const NVGcolor COLOR_EVOLVED = nvgRGB(0x64,0xe4,0x70);
 
 static const NVGcolor COLOR_MARGIN = nvgRGB(0x12,0x12,0x12);
 static const NVGcolor COLOR_BLACK_NOTE_BASE = nvgRGB(0x30,0x30,0x30);
@@ -311,8 +316,36 @@ struct NoteBlockWidgetParent{
 	virtual void updateDisplay();
 };
 
+struct TrimpotRingLight : widget::SvgWidget {
+	NVGcolor color;
+	TrimpotRingLight() {
+		this->box.size = mm2px(math::Vec(8.0, 8.0));
+	}
+	void drawLayer(const DrawArgs& args, int layer) override{
+		if(layer == 1 && this->color.a > 0.0) {
+			nvgBeginPath(args.vg);
+
+			float radiusA = std::min(this->box.size.x, this->box.size.y) / 2.0;
+			float radiusB = radiusA * 0.75f;
+			
+			nvgFillColor(args.vg, this->color);
+
+			nvgBeginPath(args.vg);
+			nvgArc(args.vg, radiusA, radiusA, radiusA, 3.2f, 0, NVGsolidity::NVG_SOLID);
+			nvgArc(args.vg, radiusA, radiusA, radiusB, 0, 3.2f, NVGsolidity::NVG_HOLE);			
+			nvgFill(args.vg);
+
+			nvgBeginPath(args.vg);
+			nvgArc(args.vg, radiusA, radiusA, radiusA, 6.3f, 3.1f, NVGsolidity::NVG_SOLID);
+			nvgArc(args.vg, radiusA, radiusA, radiusB, 3.1f, 6.3f, NVGsolidity::NVG_HOLE);
+			nvgFill(args.vg);
+		}
+	}
+};
+
+
 struct CustomTrimpot : app::SvgKnob{
-	ColoredSvgWidget* ring;
+	TrimpotRingLight* ring;
 	widget::SvgWidget* bg;
 	NoteBlockWidgetParent * parent = NULL;
 	CustomTrimpot() {
@@ -320,15 +353,15 @@ struct CustomTrimpot : app::SvgKnob{
 		maxAngle = 0.75 * M_PI;
 
 		bg = new widget::SvgWidget;
-		ring = new ColoredSvgWidget;
+		ring = new TrimpotRingLight;
 		ring->color = COLOR_TRANSPARENT;
-		fb->addChildBelow(ring, tw);
+		addChildBelow(ring, fb);
 		fb->addChildBelow(bg, tw);
 
 		setSvg(Svg::load(asset::system("res/ComponentLibrary/Trimpot.svg")));
 		bg->setSvg(Svg::load(asset::system("res/ComponentLibrary/Trimpot_bg.svg")));
 
-		ring->setSvg(Svg::load(asset::plugin(pluginInstance,"res/Trimpot_ring.svg")));
+		//ring->setSvg(Svg::load(asset::plugin(pluginInstance,"res/Trimpot_ring.svg")));
 		ring->box.pos.x -= 2.095f;
 		ring->box.pos.y -= 2.095f;
 		//auto ringSize = ring->box.size;
@@ -343,7 +376,6 @@ struct CustomTrimpot : app::SvgKnob{
 	}	
 	void setColor(NVGcolor color){
 		ring->color = color;
-		fb->dirty = true;
 	}
 };
 
@@ -374,6 +406,7 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 		addChild(knob);
 
 		extra = new ColoredSvgWidget();
+		extra->layer = 1;
 		extra->box.pos = Vec(0,0);
 		extra->color = COLOR_MARGIN;
 		addChild(extra);
@@ -454,7 +487,7 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 		noteSelector->parent = this; 
 		noteSelector->init();
 		menu->addChild(noteSelector);
-	}
+	}	
 	void draw(const DrawArgs& args) override {		
 		if(displayed){
 			NoteExtra extraValue = NE_NONE;
@@ -474,7 +507,27 @@ struct NoteWidget : widget::OpaqueWidget, NoteControler {
 			}
 		}
 	}
+	void drawLayer(const DrawArgs& args, int layer) override {		
+		if(displayed){
+			NoteExtra extraValue = NE_NONE;
+			if(knob->module != NULL) extraValue = static_cast<NoteExtra>(knob->module->paramQuantities[knob->paramId + 1]->getValue());
+			switch(extraValue){
+				case NE_NONE:
+					knob->drawLayer(args,layer);
+					break;
+				case NE_MUTE:
+					extra->setSvg(mute);
+					extra->drawLayer(args,layer);
+					break;
+				case NE_TIE:
+					extra->setSvg(tie);
+					extra->drawLayer(args,layer);
+					break;
+			}
+		}
+	}
 };
+
 
 struct SubdivisionWidget : app::Switch
 {
@@ -511,7 +564,8 @@ struct SubdivisionWidget : app::Switch
 		for(int i = 0; i < 4; i++){
 			noteLights[i] = new ColoredSvgWidget;
 			noteLights[i]->color = COLOR_TRANSPARENT;
-			fb->addChild(noteLights[i]);
+			noteLights[i]->layer = 1;
+			addChild(noteLights[i]);
 		}
 
 		//1 Note
