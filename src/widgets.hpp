@@ -17,6 +17,9 @@ struct ColoredSvgWidget : widget::SvgWidget
 			svgDraw_colorOverride(args.vg, svg->handle);
 		}
 	}
+	void draw(const DrawArgs& args) override{
+		//Do Nothing
+	}
 };
 
 #define ROOT_OFFSET 7.f/12.f

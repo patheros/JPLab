@@ -42,7 +42,10 @@ struct Sequencer3 : Module, NotePreviewer {
 	bool clockHigh;
 
 	int evolutionMapping [MAX_SEQ_LENGTH];
+	int randomEvolution [MAX_SEQ_LENGTH];
 	bool evolveUpOrDownBias;
+
+	float seqLengthScalar;
 
 	//Non Persistant State
 	
@@ -93,10 +96,13 @@ struct Sequencer3 : Module, NotePreviewer {
 		currentPulse = -1;
 		pulseCounter = 0;
 
+		seqLengthScalar = 1;
+
 		currentEvolvedPulse = -1;
 		evolveUpOrDownBias = true;
-		for(int ni = 0; ni < MAX_SEQ_LENGTH; ni++){
-			evolutionMapping[ni] = -1;
+		for(int bi = 0; bi < MAX_SEQ_LENGTH; bi++){
+			evolutionMapping[bi] = -1;
+			randomEvolution[bi] = -1;
 		}
 	}
 
@@ -142,6 +148,7 @@ struct Sequencer3 : Module, NotePreviewer {
 			pulseEvent = true;
 		}
 
+		
 		//Reset Logic
 		if(schmittTrigger(resetHigh,inputs[RESET_INPUT].getVoltage())){
 			currentPulse = -1;
@@ -162,12 +169,14 @@ struct Sequencer3 : Module, NotePreviewer {
 					//Clear Evolution when the switch is turned on so we get a fresh run
 					for(int bi = 0; bi < MAX_SEQ_LENGTH; bi++){
 						evolutionMapping[bi] = -1;
+						randomEvolution[bi] = -1;
 					}
 				}
 			}
 
+			int maxPulse = params[SEQ_LENGTH_PARAM].getValue() * seqLengthScalar * 24; //24 Pulses per Sixtenth Note			
+
 			//Wrap Pulse
-			int maxPulse = params[SEQ_LENGTH_PARAM].getValue() * 24; //24 Pulses per Sixtenth Note			
 			if(currentPulse >= maxPulse){
 				currentPulse = 0;
 				if(evolveOn){
@@ -184,11 +193,11 @@ struct Sequencer3 : Module, NotePreviewer {
 			if(evolveOn){
 				int block = pulse/24;
 				int pulseInBlock = pulse - block * 24;
+				int rndBlock = randomEvolution[block];
 				int evolvedBlock = evolutionMapping[block];
-				if(evolvedBlock != -1){
-					block = evolvedBlock;
-					pulse = pulseInBlock + block * 24;
-				}
+				if(rndBlock != -1) block = rndBlock;
+				else if(evolvedBlock != -1)  block = evolvedBlock;
+				pulse = pulseInBlock + block * 24;
 				currentEvolvedPulse = currentPulse == pulse ? - 1 : pulse;
 			}else{
 				currentEvolvedPulse = -1;
@@ -212,10 +221,8 @@ struct Sequencer3 : Module, NotePreviewer {
 	void doEvolve(){
 		using rack::random::uniform;
 
-		//Base Evolve Chance
-		if(uniform() < 0.5) return;
+		int maxBlock = params[SEQ_LENGTH_PARAM].getValue() * seqLengthScalar;
 
-		int maxBlock = params[SEQ_LENGTH_PARAM].getValue();
 		int evolvedBlocks = 0;
 		for(int bi = 0; bi < maxBlock; bi++){
 			if(evolutionMapping[bi] != -1) evolvedBlocks++;
@@ -226,28 +233,54 @@ struct Sequencer3 : Module, NotePreviewer {
 
 		DEBUG("percentEvolved:%f evolveUpChance:%f",percentEvolved,evolveUpChance);
 
-		if(evolveUpOrDownBias){
-			//DnD Advantage
-			evolveUpChance = 1-evolveUpChance;
-			evolveUpChance = evolveUpChance * evolveUpChance;
-			evolveUpChance = 1-evolveUpChance;
-			DEBUG("Up/Advantage evolveUpChance:%f",evolveUpChance);
-		}else{
-			//DnD Disadvantage
-			evolveUpChance = evolveUpChance * evolveUpChance;
-			DEBUG("Down/Disadvantage evolveUpChance:%f",evolveUpChance);
+		//Temp Evolutions
+		{
+			//Mirror Chance
+			for(int bi = 0; bi < MAX_SEQ_LENGTH; bi++){
+				randomEvolution[bi] = -1;
+				//Ranomd chance to ghost to the corresponding block on the other row
+				if(uniform() < 0.2){
+					randomEvolution[bi] = (bi + 8) % 16;
+				}
+			}
+			
+			//Random One-Time
+			{
+				//Randomly Map one to another temporarily
+				int x = rndInt(maxBlock);
+				int y = rndInt(MAX_SEQ_LENGTH);
+				randomEvolution[x] = y;
+				DEBUG("randomEvolution %i -> %i",x,y);
+			}
 		}
 
-		if(uniform() < evolveUpChance){
-			addEvolution();
-		}else{
-			removeEvolution();
-		}
 
-		if(percentEvolved > 0.8 && evolveUpOrDownBias){
-			evolveUpOrDownBias = false;
-		}else if(percentEvolved <= 0 && !evolveUpOrDownBias){
-			evolveUpOrDownBias = true;
+		//Semi-Permeanant Evolution Chance
+		if(uniform() < 0.5){
+
+			if(evolveUpOrDownBias){
+				//DnD Advantage
+				evolveUpChance = 1-evolveUpChance;
+				evolveUpChance = evolveUpChance * evolveUpChance;
+				evolveUpChance = 1-evolveUpChance;
+				DEBUG("Up/Advantage evolveUpChance:%f",evolveUpChance);
+			}else{
+				//DnD Disadvantage
+				evolveUpChance = evolveUpChance * evolveUpChance;
+				DEBUG("Down/Disadvantage evolveUpChance:%f",evolveUpChance);
+			}
+
+			if(uniform() < evolveUpChance){
+				addEvolution();
+			}else{
+				removeEvolution();
+			}
+
+			if(percentEvolved > 0.8 && evolveUpOrDownBias){
+				evolveUpOrDownBias = false;
+			}else if(percentEvolved <= 0 && !evolveUpOrDownBias){
+				evolveUpOrDownBias = true;
+			}
 		}
 	}
 
@@ -255,7 +288,7 @@ struct Sequencer3 : Module, NotePreviewer {
 		using rack::random::uniform;
 
 		std::vector<int> indexes;
-		int maxBlock = params[SEQ_LENGTH_PARAM].getValue();
+		int maxBlock = params[SEQ_LENGTH_PARAM].getValue() * seqLengthScalar;
 		for(int bi = 0; bi < maxBlock; bi++){
 			if(evolutionMapping[bi] == -1) indexes.push_back(bi);
 		}
@@ -388,7 +421,7 @@ struct Sequencer3 : Module, NotePreviewer {
 	  				cv = prevCV;
 	  				DEBUG("wholeBlockSame cv: %f",cv);
 	  			}
-	  			params[bi * NOTE_BLOCK_PARAM_COUNT + 1 + ni * 2].setValue(cv);
+	  			params[NOTE_BLOCK_PARAM + bi * NOTE_BLOCK_PARAM_COUNT + 1 + ni * 2].setValue(cv);
 	  			prevCV = cv;
 	  		}
 	  	}
@@ -425,16 +458,33 @@ struct Sequencer3 : Module, NotePreviewer {
   				if(uniform() < extraQuarterOdds) subdivision = SubDiv_Quarter;
   				if(uniform() < extraEighthOdds) subdivision = SubDiv_Eighth;
   			}
-  			params[bi * NOTE_BLOCK_PARAM_COUNT].setValue(subdivision);
+  			params[NOTE_BLOCK_PARAM + bi * NOTE_BLOCK_PARAM_COUNT].setValue(subdivision);
 
   			//Set Note Extra
 	  		for(int ni = 0; ni < 4; ni++){
 	  			NoteExtra noteExtra = NE_NONE;
 	  			if(uniform() < 0.1) noteExtra = NE_MUTE;
 	  			if(ni == 0 && bi != 0 && uniform() < 0.05)  noteExtra = NE_TIE;
-	  			params[bi * NOTE_BLOCK_PARAM_COUNT + 2 + ni * 2].setValue(noteExtra);
+	  			params[NOTE_BLOCK_PARAM + bi * NOTE_BLOCK_PARAM_COUNT + 2 + ni * 2].setValue(noteExtra);
 	  		}
 	  	}
+  	}
+
+  	void shiftBlocks(int delta){
+  		//Also shift current pulse to prevent weird hickups in play back
+  		currentPulse += delta * 24;
+
+  		delta *= NOTE_BLOCK_PARAM_COUNT;
+  		const int MAX = MAX_SEQ_LENGTH * NOTE_BLOCK_PARAM_COUNT;
+  		float paramValues [MAX] = {};
+  		for(int i = 0; i < MAX; i++){
+  			paramValues[i] = params[NOTE_BLOCK_PARAM + i].getValue();
+  		}
+  		for(int i = 0; i < MAX; i++){
+  			int i2 = i - delta;
+  			i2 = mod_0_max(i2,MAX);
+  			params[NOTE_BLOCK_PARAM + i].setValue(paramValues[i2]);
+  		}
   	}
 };
 
@@ -589,12 +639,48 @@ struct Sequencer3Widget : ModuleWidget {
 		}
 	}
 
-	// void appendContextMenu(Menu* menu) override {
-	// 	Sequencer3* module = dynamic_cast<Sequencer3*>(this->module);
+	void appendContextMenu(Menu* menu) override {
+		Sequencer3* module = dynamic_cast<Sequencer3*>(this->module);
 
-	// 	menu->addChild(new MenuEntry); //Blank Row
-	// 	menu->addChild(createMenuLabel("Sequencer3"));
-	// }
+		menu->addChild(new MenuEntry); //Blank Row
+		menu->addChild(createMenuLabel("Sequencer3"));
+
+		menu->addChild(createSubmenuItem("Randomize", "",
+			[module](Menu* menu) {
+				menu->addChild(createMenuItem("CVs", "",
+					[=]() {
+						module->randomizeCVs();
+					}
+				));
+
+				menu->addChild(createMenuItem("Rythm", "",
+					[=]() {
+						module->randomizeRythm();
+					}
+				));
+			}
+		));
+
+		menu->addChild(createSubmenuItem("Shift", "",
+			[module](Menu* menu) {
+				menu->addChild(createMenuItem("Block Forward", "",
+					[=]() {
+						module->shiftBlocks(+1);
+					}
+				));
+
+				menu->addChild(createMenuItem("Block Backward", "",
+					[=]() {
+						module->shiftBlocks(-1);
+					}
+				));
+			}
+		));
+
+		
+	}
+
+
 };
 
 
